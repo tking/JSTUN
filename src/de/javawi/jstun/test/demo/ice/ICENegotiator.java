@@ -34,8 +34,8 @@ import de.javawi.jstun.test.demo.ice.Candidate.CandidateType;
 import de.javawi.jstun.util.Address;
 import de.javawi.jstun.util.UtilityException;
 
-public class ICENegociator {
-	private static final Logger LOGGER = LoggerFactory.getLogger(ICENegociator.class);
+public class ICENegotiator {
+	private static final Logger LOGGER = LoggerFactory.getLogger(ICENegotiator.class);
 	// type preference must be an integer from 0 (=lowest) to 126 (=highest) (inclusive)
 	private final static int LOCAL_PREFERENCE = 0;
 	private final static int SERVER_REFLEXIVE_PREFERENCE = 42;
@@ -50,12 +50,12 @@ public class ICENegociator {
 	// candidates
 	HashSet<Candidate> candidates;
 	
-	public ICENegociator(short componentId) {
+	public ICENegotiator(short componentId) {
 		this.componentId = componentId;
 		candidates = new HashSet<Candidate>();
 	}
 	
-	public ICENegociator(String stunServer, int stunPort, short componentId) {
+	public ICENegotiator(String stunServer, int stunPort, short componentId) {
 		this.stunServer = stunServer;
 		this.stunPort = stunPort;
 		this.componentId = componentId;
@@ -171,7 +171,7 @@ public class ICENegociator {
 	}
 
 	public static void main(String args[]) {
-		ICENegociator cc = new ICENegociator((short) 1);
+		ICENegotiator cc = new ICENegotiator((short) 1);
 		// gather candidates
 		cc.gatherCandidateAddresses();
 		// priorize candidates
