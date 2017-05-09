@@ -1,0 +1,101 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>de.javawi.jstun</groupId>
+    <version>0.7.4-SNAPSHOT</version>
+    <artifactId>jstun</artifactId>
+    <packaging>jar</packaging>
+    <name>JSTUN</name>
+    <description>"JSTUN" is a Java-based STUN (Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)) implementation. STUN provides a mean for applications to discover the presence and type of firewalls or NATs between them and the public internet. Additionally, in presence of a NAT STUN can be used by applications to learn the public Internet Protocol (IP) address assigned to the NAT.</description>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+        <license>
+            <name>GNU General Public License, Version 2</name>
+            <url>https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <issueManagement>
+        <url>https://github.com/tking/JSTUN/issues</url>
+        <system>GitHub Issues</system>
+    </issueManagement>
+
+    <scm>
+        <url>https://github.com/tking/JSTUN</url>
+        <connection>scm:git:git://github.com/tking/JSTUN.git</connection>
+        <developerConnection>scm:git:git@github.com:tking/JSTUN.git</developerConnection>
+    </scm>
+
+    <developers>
+        <developer>
+            <id>tking</id>
+            <name>Thomas King</name>
+            <email>king@t-king.de</email>
+            <url>https://www.t-king.de/</url>
+        </developer>
+    </developers>
+
+    <contributors>
+        <contributor>
+            <name>Thomas Butter</name>
+        </contributor>
+        <contributor>
+            <name>Jim Morris</name>
+        </contributor>
+        <contributor>
+            <name>Jeff Williams</name>
+        </contributor>
+        <contributor>
+            <name>Jasmin Meyer</name>
+        </contributor>
+        <contributor>
+            <name>Guus der Kinderen</name>
+            <email>guus.der.kinderen@gmail.com</email>
+            <timezone>+1</timezone>
+            <url>https://github.com/guusdk</url>
+        </contributor>
+    </contributors>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.3</version>
+                <configuration>
+                    <source>1.6</source>
+                    <target>1.6</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.5.8</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+            <version>1.5.8</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
