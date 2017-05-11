@@ -12,11 +12,7 @@
 package de.javawi.jstun.test.demo;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.util.Vector;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
@@ -49,6 +45,7 @@ import de.javawi.jstun.util.UtilityException;
 public class StunServer {
 	private static final Logger LOGGER = LoggerFactory.getLogger(StunServer.class);
 	Vector<DatagramSocket> sockets;
+	private boolean doRun;
 	
 	public StunServer(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary) throws SocketException {
 		sockets = new Vector<DatagramSocket>();
@@ -59,13 +56,31 @@ public class StunServer {
 	}
 	
 	public void start() throws SocketException {
+		doRun = true;
 		for (DatagramSocket socket : sockets) {
 			socket.setReceiveBufferSize(2000);
+			socket.setSoTimeout(5000);
 			StunServerReceiverThread ssrt = new StunServerReceiverThread(socket);
 			ssrt.start();
 		}
 	}
-	
+
+	public void stop() {
+		doRun = false;
+		final long start = System.currentTimeMillis();
+		for ( DatagramSocket socket : sockets ) {
+			// Wait for a wile to allow sockets to disconnect gracefully.
+			while ( !socket.isClosed() && System.currentTimeMillis() - start < 7000 ) {
+				try {
+					Thread.sleep( 50 );
+				} catch ( InterruptedException e ) {
+					e.printStackTrace();
+				}
+			}
+			socket.close();
+		}
+	}
+
 	/*
 	 * Inner class to handle incoming packets and react accordingly.
 	 * I decided not to start a thread for every received Binding Request, because the time
@@ -95,7 +110,7 @@ public class StunServer {
 		}
 		
 		public void run() {
-			while (true) {
+			while (doRun) {
 				try {
 					DatagramPacket receive = new DatagramPacket(new byte[200], 200);
 					receiverSocket.receive(receive);
@@ -213,7 +228,9 @@ public class StunServer {
 						send.setAddress(receive.getAddress());
 						receiverSocket.send(send);
 						LOGGER.debug(changedPortIP.getLocalAddress().getHostAddress() + ":" + changedPortIP.getLocalPort() + " send Binding Error Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
-					}	
+					}
+				} catch (SocketTimeoutException ioe) {
+					// No data for SO_TIMEOUT milliseconds.
 				} catch (IOException ioe) {
 					ioe.printStackTrace();
 				} catch (MessageAttributeParsingException mape) {
@@ -228,6 +245,7 @@ public class StunServer {
 					aioobe.printStackTrace();
 				}
 			}
+			receiverSocket.close();
 		}
 	}
 	
