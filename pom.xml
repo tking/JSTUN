@@ -7,6 +7,7 @@
     <packaging>jar</packaging>
     <name>JSTUN</name>
     <description>"JSTUN" is a Java-based STUN (Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)) implementation. STUN provides a mean for applications to discover the presence and type of firewalls or NATs between them and the public internet. Additionally, in presence of a NAT STUN can be used by applications to learn the public Internet Protocol (IP) address assigned to the NAT.</description>
+    <url>http://jstun.javawi.de</url>
 
     <licenses>
         <license>
