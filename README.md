@@ -1,3 +1,5 @@
+[![Maven Central](https://img.shields.io/maven-central/v/de.javawi.jstun/jstun.svg)](http://search.maven.org/#search|gav|1|g:"de.javawi.jstun"%20AND%20a:"jstun")
+
 "JSTUN" - Java Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)
 =========================================================================================================
 
