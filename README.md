@@ -31,7 +31,7 @@ Due to the lack of fully RFC compliant STUN servers I could not test the shared 
 
 The reality is not as dark as it might seem after reading the previous section. All tested STUN servers provided a minimal set of functionality that is required to discover firewalls and NATs.
 
-If you found a bug or if you want to implement enhancements or additional functionalities please do not hesitate to contact me by email. A CVS account can be provided if needed.
+If you found a bug or if you want to implement enhancements or additional functionalities please do not hesitate to contact me.
 
  
 What do you need?
