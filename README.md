@@ -1,3 +1,5 @@
+[![Maven Central](https://img.shields.io/maven-central/v/de.javawi.jstun/jstun.svg)](http://search.maven.org/#search|gav|1|g:"de.javawi.jstun"%20AND%20a:"jstun")
+
 "JSTUN" - Java Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)
 =========================================================================================================
 
@@ -15,9 +17,9 @@ How does it work?
 -----------------
 STUN is described in RFC 3489. A STUN server is running on jstun.javawi.de:3478.
 
-Just invoke "java -cp jstun-0.7.3.jar:slf4j-api-1.5.6.jar:slf4j-jdk14-1.5.6.jar de.javawi.jstun.test.demo.DiscoveryTestDemo" or use the de.javawi.jstun.test.demo.DiscoveryTest and de.javawi.jstun.test.demo.BindingLifetimeTest classes in order to start the STUN client.
+Just invoke "java -cp jstun-0.7.4.jar:slf4j-api-1.5.6.jar:slf4j-jdk14-1.5.6.jar de.javawi.jstun.test.demo.DiscoveryTestDemo" or use the de.javawi.jstun.test.demo.DiscoveryTest and de.javawi.jstun.test.demo.BindingLifetimeTest classes in order to start the STUN client.
 
-A "JSTUN"-based STUN server is also available. Just try it (assuming you own a dual-homed machine): java -cp jstun-0.7.3.jar:slf4j-api-1.5.6.jar:slf4j-jdk14-1.5.6.jar de.javawi.jstun.test.demo. StunServer PORT1 IP1 PORT2 IP2.
+A "JSTUN"-based STUN server is also available. Just try it (assuming you own a dual-homed machine): java -cp jstun-0.7.4.jar:slf4j-api-1.5.6.jar:slf4j-jdk14-1.5.6.jar de.javawi.jstun.test.demo. StunServer PORT1 IP1 PORT2 IP2.
  
 
 What about RFC 5389?
