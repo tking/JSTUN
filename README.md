@@ -3,7 +3,7 @@
 "JSTUN" - Java Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)
 =========================================================================================================
 
-(by Thomas King - king[at]t-king.de - Official website: http://jstun.javawi.de) 
+(by Thomas King - king[at]t-king.de) 
  
 
 What is "JSTUN"?
