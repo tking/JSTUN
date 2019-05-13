@@ -85,10 +85,10 @@ public class ErrorCode extends MessageAttribute {
 			if (data.length < 4) {
 				throw new MessageAttributeParsingException("Data array too short");
 			}
-			byte classHeaderByte = data[3];
+			byte classHeaderByte = data[2];
 			int classHeader = Utility.oneByteToInteger(classHeaderByte);
 			if ((classHeader < 1) || (classHeader > 6)) throw new MessageAttributeParsingException("Class parsing error");
-			byte numberByte = data[4];
+			byte numberByte = data[3];
 			int number = Utility.oneByteToInteger(numberByte);
 			if ((number < 0) || (number > 99)) throw new MessageAttributeParsingException("Number parsing error");
 			int responseCode = (classHeader * 100) + number;
