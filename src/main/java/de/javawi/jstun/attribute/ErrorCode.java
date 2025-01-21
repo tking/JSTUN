@@ -62,8 +62,8 @@ public class ErrorCode extends MessageAttribute {
 		if ((length % 4) != 0) {
 			length += 4 - (length % 4);
 		}
-		// message attribute header
-		length += 4;
+		// message attribute header + error code header
+		length += 8;
 		byte[] result = new byte[length];
 		// message attribute header
 		// type
