@@ -15,7 +15,9 @@ So far, most of the message headers and attributes as standardized in RFC 3489 a
 
 How does it work?
 -----------------
-STUN is described in RFC 3489. A STUN server is running on jstun.javawi.de:3478.
+STUN is described in RFC 3489 and RFC 5389.
+
+A STUN server is running on jstun.javawi.de:3478.
 
 Just invoke "java -cp jstun-0.7.4.jar:slf4j-api-1.5.6.jar:slf4j-jdk14-1.5.6.jar de.javawi.jstun.test.demo.DiscoveryTestDemo" or use the de.javawi.jstun.test.demo.DiscoveryTest and de.javawi.jstun.test.demo.BindingLifetimeTest classes in order to start the STUN client.
 
@@ -24,7 +26,8 @@ A "JSTUN"-based STUN server is also available. Just try it (assuming you own a d
 
 What about RFC 5389?
 --------------------
-I am looking for a way to enhance the current "JSTUN" implementation to support the new Session Traversal Utilities for NAT (STUN) protocol as described in RFC 5389. If you are interested in supporting this effort with code or money please drop me a mail (king[at]t-king.de).
+I am looking for a way to enhance the current "JSTUN" implementation to support the new Session Traversal Utilities for NAT (STUN) protocol as described in RFC 5389 completely. If you are interested in supporting this effort with code or money please drop me a mail (king[at]t-king.de).
+IPv6 support is already implemented thanks to https://github.com/fourjr
  
 
 Limits?
