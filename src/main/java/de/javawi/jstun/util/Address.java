@@ -15,71 +15,105 @@ import java.util.*;
 import java.net.*;
 
 public class Address {
-	int firstOctet;
-	int secondOctet;
-	int thirdOctet;
-	int fourthOctet;
+	int[] octets;
 	
 	public Address(int firstOctet, int secondOctet, int thirdOctet, int fourthOctet) throws UtilityException {
+		// Deprecated: IPv4 Parsing, use Address(int[] octets) instead
 		if ((firstOctet < 0) || (firstOctet > 255) || (secondOctet < 0) || (secondOctet > 255) || (thirdOctet < 0) || (thirdOctet > 255) || (fourthOctet < 0) || (fourthOctet > 255)) {
 			throw new UtilityException("Address is malformed.");
 		}
-		this.firstOctet = firstOctet;
-		this.secondOctet = secondOctet;
-		this.thirdOctet = thirdOctet;
-		this.fourthOctet = fourthOctet;
+		this.octets = new int[4];
+		this.octets[0] = firstOctet;
+		this.octets[1] = secondOctet;
+		this.octets[2] = thirdOctet;
+		this.octets[3] = fourthOctet;
+	}
+
+	public Address(int[] octets) throws UtilityException {
+		if (octets.length != 4 && octets.length != 16) {
+			throw new UtilityException("4 or 16 octets are required.");
+		}
+        for (int octet : octets) {
+            if ((octet < 0) || (octet > 255)) {
+                throw new UtilityException("Address is malformed.");
+            }
+        }
+		this.octets = octets;
 	}
 	
 	public Address(String address) throws UtilityException {
-		StringTokenizer st = new StringTokenizer(address, ".");
-		if (st.countTokens() != 4) {
-			throw new UtilityException("4 octets in address string are required.");
-		}
-		int i = 0;
-		while (st.hasMoreTokens()) {
-			int temp = Integer.parseInt(st.nextToken());
-			if ((temp < 0) || (temp > 255)) {
-				throw new UtilityException("Address is in incorrect format.");
+		// ipv4
+		if (address.contains(".")) {
+			StringTokenizer st = new StringTokenizer(address, ".");
+			if (st.countTokens() != 4) {
+				throw new UtilityException("4 octets in address string are required.");
 			}
-			switch (i) {
-			case 0: firstOctet = temp; ++i; break;
-			case 1: secondOctet = temp; ++i; break;
-			case 2: thirdOctet = temp; ++i; break;
-			case 3: fourthOctet = temp; ++i; break;
+			int i = 0;
+			this.octets = new int[4];
+			while (st.hasMoreTokens()) {
+				int temp = Integer.parseInt(st.nextToken());
+				if ((temp < 0) || (temp > 255)) {
+					throw new UtilityException("Address is in incorrect format.");
+				}
+				this.octets[i] = temp;
+				i++;
+			}
+		} else {
+			// ipv6
+			StringTokenizer st = new StringTokenizer(address, ":");
+			if (st.countTokens() != 8) {
+				throw new UtilityException("8 hex values in address string are required.");
+			}
+			int i = 0;
+			this.octets = new int[16];
+			while (st.hasMoreTokens()) {
+				int temp = Integer.parseInt(st.nextToken(), 16);
+				if ((temp < 0) || (temp > 65535)) {
+					throw new UtilityException("Address is in incorrect format.");
+				}
+				this.octets[i] = temp / 256;
+				this.octets[i + 1] = temp % 256;
+				i += 2;
 			}
 		}
 	}
 	
 	public Address(byte[] address) throws UtilityException {
-		if (address.length < 4) {
-			throw new UtilityException("4 bytes are required.");
+		if (address.length != 4 && address.length != 16) {
+			throw new UtilityException("4 or 16 bytes are required.");
 		}
-		firstOctet = Utility.oneByteToInteger(address[0]);
-		secondOctet = Utility.oneByteToInteger(address[1]);
-		thirdOctet = Utility.oneByteToInteger(address[2]);
-		fourthOctet = Utility.oneByteToInteger(address[3]);
+		this.octets = new int[address.length];
+		for (int i = 0; i < address.length; i++) {
+			this.octets[i] = Utility.oneByteToInteger(address[i]);
+		}
 	}
 	
 	public String toString() {
-		return firstOctet + "." + secondOctet + "." + thirdOctet + "." + fourthOctet;
+		if (this.octets.length == 4) {
+			return octets[0] + "." + octets[1] + "." + octets[2] + "." + octets[3];
+		} else {
+			StringBuilder result = new StringBuilder();
+			for (int i = 0; i < 16; i+=2) {
+				int currentVal = octets[i] * 256 + octets[i + 1];
+				result.append(Integer.toHexString(currentVal));
+				if (i < 14) {
+					result.append(":");
+				}
+			}
+			return result.toString();
+		}
 	}
 	
 	public byte[] getBytes() throws UtilityException {
-		byte[] result = new byte[4];
-		result[0] = Utility.integerToOneByte(firstOctet);
-		result[1] = Utility.integerToOneByte(secondOctet);
-		result[2] = Utility.integerToOneByte(thirdOctet);
-		result[3] = Utility.integerToOneByte(fourthOctet);
+		byte[] result = new byte[octets.length];
+		for (int i = 0; i < octets.length; i++) {
+			result[i] = Utility.integerToOneByte(octets[i]);
+		}
 		return result;
 	}
 	
 	public InetAddress getInetAddress() throws UtilityException, UnknownHostException {
-		byte[] address = new byte[4];
-		address[0] = Utility.integerToOneByte(firstOctet);
-		address[1] = Utility.integerToOneByte(secondOctet);
-		address[2] = Utility.integerToOneByte(thirdOctet);
-		address[3] = Utility.integerToOneByte(fourthOctet);
-		return InetAddress.getByAddress(address);
+		return InetAddress.getByAddress(this.getBytes());
 	}
 	
 	public boolean equals(Object obj) {
@@ -87,16 +121,18 @@ public class Address {
 		try {
 			byte[] data1 = this.getBytes();
 			byte[] data2 = ((Address) obj).getBytes();
-			if ((data1[0] == data2[0]) && (data1[1] == data2[1]) &&
-			    (data1[2] == data2[2]) && (data1[3] == data2[3])) return true;
-			return false;
-		} catch (UtilityException ue) {
+            return Arrays.equals(data1, data2);
+        } catch (UtilityException ue) {
 			return false;
 		}
 	}
 	
 	public int hashCode() {
-		return (firstOctet << 24) + (secondOctet << 16) + (thirdOctet << 8) + fourthOctet; 
+		int result = 0;
+		for (int i = 0; i < octets.length; i++) {
+			result += octets[i] << (i * 8);
+		}
+		return result;
 	}
 
 }
