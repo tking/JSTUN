@@ -61,7 +61,8 @@ public class MappedResponseChangedSourceAddressReflectedFrom extends MessageAttr
 	}
 	
 	public byte[] getBytes() throws UtilityException {
-		byte[] result = new byte[12];
+		byte[] addressInBytes = address.getBytes();
+		byte[] result = new byte[8 + addressInBytes.length];
 		// message attribute header
 		// type
 		System.arraycopy(Utility.integerToTwoBytes(typeToInteger(type)), 0, result, 0, 2);
@@ -70,11 +71,16 @@ public class MappedResponseChangedSourceAddressReflectedFrom extends MessageAttr
 		
 		// mappedaddress header
 		// family
-		result[5] = Utility.integerToOneByte(0x01); 
+		if (addressInBytes.length == 4) {
+			result[5] = Utility.integerToOneByte(0x01);
+		}
+		else {
+			result[5] = Utility.integerToOneByte(0x02);
+		}
 		// port
 		System.arraycopy(Utility.integerToTwoBytes(port), 0, result, 6, 2);
 		// address
-		System.arraycopy(address.getBytes(), 0, result, 8, 4);
+		System.arraycopy(addressInBytes, 0, result, 8, addressInBytes.length);
 		return result;
 	}
 	
@@ -84,15 +90,22 @@ public class MappedResponseChangedSourceAddressReflectedFrom extends MessageAttr
 				throw new MessageAttributeParsingException("Data array too short");
 			}
 			int family = Utility.oneByteToInteger(data[1]);
-			if (family != 0x01) throw new MessageAttributeParsingException("Family " + family + " is not supported");
+
+			if (family != 0x01 && family != 0x02) {
+				// Family 1 is for IPv4, Family 2 is for IPv6
+				throw new MessageAttributeParsingException("Family " + family + " is not supported");
+			}
+
 			byte[] portArray = new byte[2];
 			System.arraycopy(data, 2, portArray, 0, 2);
 			ma.setPort(Utility.twoBytesToInteger(portArray));
-			int firstOctet = Utility.oneByteToInteger(data[4]);
-			int secondOctet = Utility.oneByteToInteger(data[5]);
-			int thirdOctet = Utility.oneByteToInteger(data[6]);
-			int fourthOctet = Utility.oneByteToInteger(data[7]);
-			ma.setAddress(new Address(firstOctet, secondOctet, thirdOctet, fourthOctet));
+			// Dynamically determine the address length (8 or 16)
+
+			int[] octets = new int[data.length - 4];
+			for (int i = 0; i < data.length - 4; i++) {
+				octets[i] = Utility.oneByteToInteger(data[i + 4]);
+			}
+			ma.setAddress(new Address(octets));
 			return ma;
 		} catch (UtilityException ue) {
 			throw new MessageAttributeParsingException("Parsing error");
