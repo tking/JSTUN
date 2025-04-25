@@ -2,3 +2,6 @@ logging_server.txt
 target/
 .idea/
 *.iml
+.classpath
+.project
+.settings/
