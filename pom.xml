@@ -93,6 +93,9 @@
                             <addClasspath>true</addClasspath>
                             <mainClass>de.javawi.jstun.test.demo.StunServer</mainClass>
                         </manifest>
+						<manifestEntries>
+							<Automatic-Module-Name>de.javawi.jstun</Automatic-Module-Name>
+						</manifestEntries>
                     </archive>
                 </configuration>
             </plugin>
