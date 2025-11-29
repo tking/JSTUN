@@ -1,0 +1,4 @@
+Nov 29, 2025 5:03:54 PM de.javawi.jstun.test.FastDiscoveryTest test2
+FINE: Test 2: Binding Request sent.
+Nov 29, 2025 5:03:54 PM de.javawi.jstun.test.FastDiscoveryTest test1
+FINE: Test 1: Binding Request sent.

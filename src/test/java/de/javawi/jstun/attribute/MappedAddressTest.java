@@ -11,24 +11,18 @@
 
 package de.javawi.jstun.attribute;
 
-import de.javawi.jstun.header.MessageHeader;
-import de.javawi.jstun.header.MessageHeaderInterface;
-import de.javawi.jstun.util.UtilityException;
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.net.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-public class MappedAddressTest extends TestCase {
+public class MappedAddressTest {
 	MappedAddress maV4;
 	MappedAddress maV6;
 	byte[] dataV4;
 	byte[] dataV6;
 
-	public MappedAddressTest(String mesg) {
-		super(mesg);
-	}
-
+	@BeforeEach
 	public void setUp() throws Exception {
 		dataV4 = new byte[8];
 		dataV4[0] = 0; // IPv4 family
@@ -46,35 +40,39 @@ public class MappedAddressTest extends TestCase {
 		dataV6[1] = 2;
 		dataV6[2] = -8; // Port
 		dataV6[3] = 96;
-		dataV6[4] = (byte)0x20;
-		dataV6[5] = (byte)0x01;
-		dataV6[6] = (byte)0x0d;
-		dataV6[7] = (byte)0xb8;
-		dataV6[8] = (byte)0x85;
-		dataV6[9] = (byte)0xa3;
-		dataV6[10] = (byte)0x08;
-		dataV6[11] = (byte)0xd3;
-		dataV6[12] = (byte)0x13;
-		dataV6[13] = (byte)0x19;
-		dataV6[14] = (byte)0x8a;
-		dataV6[15] = (byte)0x2e;
-		dataV6[16] = (byte)0x03;
-		dataV6[17] = (byte)0x70;
-		dataV6[18] = (byte)0x73;
-		dataV6[19] = (byte)0x44;
+		dataV6[4] = (byte) 0x20;
+		dataV6[5] = (byte) 0x01;
+		dataV6[6] = (byte) 0x0d;
+		dataV6[7] = (byte) 0xb8;
+		dataV6[8] = (byte) 0x85;
+		dataV6[9] = (byte) 0xa3;
+		dataV6[10] = (byte) 0x08;
+		dataV6[11] = (byte) 0xd3;
+		dataV6[12] = (byte) 0x13;
+		dataV6[13] = (byte) 0x19;
+		dataV6[14] = (byte) 0x8a;
+		dataV6[15] = (byte) 0x2e;
+		dataV6[16] = (byte) 0x03;
+		dataV6[17] = (byte) 0x70;
+		dataV6[18] = (byte) 0x73;
+		dataV6[19] = (byte) 0x44;
 		maV6 = (MappedAddress) MappedAddress.parse(dataV6);
 	}
 
 	/*
 	 * Test method for 'de.javawi.jstun.attribute.MappedAddress.MappedAddress()'
 	 */
+	@Test
 	public void testMappedAddress() {
 		new MappedAddress();
 	}
 
 	/*
-	 * Test method for 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.getBytes()'
+	 * Test method for
+	 * 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.
+	 * getBytes()'
 	 */
+	@Test
 	public void testV4GetBytes() {
 		try {
 			byte[] result = maV4.getBytes();
@@ -97,8 +95,11 @@ public class MappedAddressTest extends TestCase {
 	}
 
 	/*
-	 * Test method for 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.getBytes()'
+	 * Test method for
+	 * 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.
+	 * getBytes()'
 	 */
+	@Test
 	public void testV6GetBytes() {
 		try {
 			byte[] result = maV6.getBytes();
@@ -129,16 +130,22 @@ public class MappedAddressTest extends TestCase {
 	}
 
 	/*
-	 * Test method for 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.getPort()'
+	 * Test method for
+	 * 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.
+	 * getPort()'
 	 */
+	@Test
 	public void testGetPort() {
 		assertTrue(maV4.getPort() == 63584);
 		assertTrue(maV6.getPort() == 63584);
 	}
 
 	/*
-	 * Test method for 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.getAddress()'
+	 * Test method for
+	 * 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.
+	 * getAddress()'
 	 */
+	@Test
 	public void testV4GetAddress() {
 		try {
 			assertTrue(maV4.getAddress().equals(new de.javawi.jstun.util.Address("84.56.233.76")));
@@ -148,33 +155,46 @@ public class MappedAddressTest extends TestCase {
 	}
 
 	/*
-	 * Test method for 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.getAddress()'
+	 * Test method for
+	 * 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.
+	 * getAddress()'
 	 */
+	@Test
 	public void testV6GetAddress() {
 		try {
-			assertTrue(maV6.getAddress().equals(new de.javawi.jstun.util.Address("2001:db8:85a3:8d3:1319:8a2e:370:7344")));
+			assertTrue(
+					maV6.getAddress().equals(new de.javawi.jstun.util.Address("2001:db8:85a3:8d3:1319:8a2e:370:7344")));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 
 	/*
-	 * Test method for 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.setPort(int)'
+	 * Test method for
+	 * 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.
+	 * setPort(int)'
 	 */
+	@Test
 	public void testSetPort() {
 
 	}
 
 	/*
-	 * Test method for 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.setAddress(Address)'
+	 * Test method for
+	 * 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.
+	 * setAddress(Address)'
 	 */
+	@Test
 	public void testSetAddress() {
 
 	}
 
 	/*
-	 * Test method for 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.toString()'
+	 * Test method for
+	 * 'de.javawi.jstun.attribute.MappedResponseChangedSourceAddressReflectedFrom.
+	 * toString()'
 	 */
+	@Test
 	public void testToString() {
 
 	}
