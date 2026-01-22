@@ -59,7 +59,7 @@ public class UnknownAttribute extends MessageAttribute {
 		}
 		// padding
 		if (unkown.size()%2 == 1) {
-			System.arraycopy(Utility.integerToTwoBytes(typeToInteger(unkown.elementAt(1))), 0, result, 4, 2);
+			System.arraycopy(Utility.integerToTwoBytes(typeToInteger(unkown.lastElement())), 0, result, 4, 2);
 		}
 		return result;
 	}
