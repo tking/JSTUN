@@ -52,9 +52,13 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 		if (type == MessageAttributeType.Realm) return REALM;
 		if (type == MessageAttributeType.Nonce) return NONCE;
 		if (type == MessageAttributeType.XorMappedAddress) return XORMAPPEDADDRESS;
+		if (type == MessageAttributeType.Padding) return PADDING;
+		if (type == MessageAttributeType.ResponsePort) return RESPONSEPORT;
 		if (type == MessageAttributeType.Software) return SOFTWARE;
 		if (type == MessageAttributeType.AlternateServer) return ALTERNATESERVER;
 		if (type == MessageAttributeType.Fingerprint) return FINGERPRINT;
+		if (type == MessageAttributeType.ResponseOrigin) return RESPONSEORIGIN;
+		if (type == MessageAttributeType.OtherAddress) return OTHERADDRESS;
 		if (type == MessageAttributeType.Dummy) return DUMMY;
 		return -1;
 	}
@@ -74,9 +78,13 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 		if (type == REALM) return MessageAttributeType.Realm;
 		if (type == NONCE) return MessageAttributeType.Nonce;
 		if (type == XORMAPPEDADDRESS || type == XORMAPPEDADDRESS_OPTIONAL) return MessageAttributeType.XorMappedAddress;
+		if (type == PADDING) return MessageAttributeType.Padding;
+		if (type == RESPONSEPORT) return MessageAttributeType.ResponsePort;
 		if (type == SOFTWARE) return MessageAttributeType.Software;
 		if (type == ALTERNATESERVER) return MessageAttributeType.AlternateServer;
 		if (type == FINGERPRINT) return MessageAttributeType.Fingerprint;
+		if (type == RESPONSEORIGIN) return MessageAttributeType.ResponseOrigin;
+		if (type == OTHERADDRESS) return MessageAttributeType.OtherAddress;
 		if (type == DUMMY) return MessageAttributeType.Dummy;
 		return null;
 	}
@@ -122,9 +130,13 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 			case XORMAPPEDADDRESS_OPTIONAL:
 				ma = XorMappedAddress.parse(valueArray, transactionId);
 				break;
+			case PADDING: ma = Padding.parse(valueArray); break;
+			case RESPONSEPORT: ma = ResponsePort.parse(valueArray); break;
 			case SOFTWARE: ma = Software.parse(valueArray); break;
 			case ALTERNATESERVER: ma = AlternateServer.parse(valueArray); break;
 			case FINGERPRINT: ma = Fingerprint.parse(valueArray); break;
+			case RESPONSEORIGIN: ma = ResponseOrigin.parse(valueArray); break;
+			case OTHERADDRESS: ma = OtherAddress.parse(valueArray); break;
 			default:
 				if (type <= 0x7fff) {
 					throw new UnknownMessageAttributeException("Unkown mandatory message attribute", intToType(type));

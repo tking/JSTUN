@@ -27,10 +27,14 @@ import de.javawi.jstun.attribute.ChangedAddress;
 import de.javawi.jstun.attribute.MappedAddress;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
+import de.javawi.jstun.attribute.OtherAddress;
 import de.javawi.jstun.attribute.ResponseAddress;
+import de.javawi.jstun.attribute.ResponseOrigin;
+import de.javawi.jstun.attribute.ResponsePort;
 import de.javawi.jstun.attribute.SourceAddress;
 import de.javawi.jstun.attribute.UnknownAttribute;
 import de.javawi.jstun.attribute.UnknownMessageAttributeException;
+import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.attribute.MessageAttributeInterface.MessageAttributeType;
 import de.javawi.jstun.header.MessageHeader;
 import de.javawi.jstun.header.MessageHeaderParsingException;
@@ -121,90 +125,118 @@ public class StunServer {
 						if (receiveMH.getType() == MessageHeaderType.BindingRequest) {
 							LOGGER.debug(receiverSocket.getLocalAddress().getHostAddress() + ":" + receiverSocket.getLocalPort() + " Binding Request received from " + receive.getAddress().getHostAddress() + ":" + receive.getPort());
 							ChangeRequest cr = (ChangeRequest) receiveMH.getMessageAttribute(MessageAttributeType.ChangeRequest);
-							if (cr == null) throw new MessageAttributeException("Message attribute change request is not set.");
+							if (cr == null) {
+								cr = new ChangeRequest();
+							}
 							ResponseAddress ra = (ResponseAddress) receiveMH.getMessageAttribute(MessageAttributeType.ResponseAddress);
+							ResponsePort rp = (ResponsePort) receiveMH.getMessageAttribute(MessageAttributeType.ResponsePort);
+							int targetPort = (rp != null) ? rp.getPort() : receive.getPort();
 						
 							MessageHeader sendMH = new MessageHeader(MessageHeaderType.BindingResponse);
 							sendMH.setTransactionID(receiveMH.getTransactionID());
 						
-							// Mapped address attribute
+							// Mapped address attribute (RFC 3489) and XOR-Mapped address (RFC 5389/8489)
 							MappedAddress ma = new MappedAddress();
 							ma.setAddress(new Address(receive.getAddress().getAddress()));
 							ma.setPort(receive.getPort());
 							sendMH.addMessageAttribute(ma);
-							// Changed address attribute
+							XorMappedAddress xma = new XorMappedAddress(receiveMH.getTransactionID());
+							xma.setAddress(new Address(receive.getAddress().getAddress()));
+							xma.setPort(receive.getPort());
+							sendMH.addMessageAttribute(xma);
+							// Changed address (RFC 3489) and Other address (RFC 5780)
 							ChangedAddress ca = new ChangedAddress();
 							ca.setAddress(new Address(changedPortIP.getLocalAddress().getAddress()));
 							ca.setPort(changedPortIP.getLocalPort());
 							sendMH.addMessageAttribute(ca);
+							OtherAddress oa = new OtherAddress();
+							oa.setAddress(new Address(changedPortIP.getLocalAddress().getAddress()));
+							oa.setPort(changedPortIP.getLocalPort());
+							sendMH.addMessageAttribute(oa);
 							if (cr.isChangePort() && (!cr.isChangeIP())) {
 								LOGGER.debug("Change port received in Change Request attribute");
-								// Source address attribute
+								// Source address / Response origin attribute
 								SourceAddress sa = new SourceAddress();
 								sa.setAddress(new Address(changedPort.getLocalAddress().getAddress()));
 								sa.setPort(changedPort.getLocalPort());
 								sendMH.addMessageAttribute(sa);
+								ResponseOrigin ro = new ResponseOrigin();
+								ro.setAddress(new Address(changedPort.getLocalAddress().getAddress()));
+								ro.setPort(changedPort.getLocalPort());
+								sendMH.addMessageAttribute(ro);
 								byte[] data = sendMH.getBytes();
 								DatagramPacket send = new DatagramPacket(data, data.length);
 								if (ra != null) {
 									send.setPort(ra.getPort());
 									send.setAddress(ra.getAddress().getInetAddress());
 								} else {
-									send.setPort(receive.getPort());
+									send.setPort(targetPort);
 									send.setAddress(receive.getAddress());
 								}
 								changedPort.send(send);
 								LOGGER.debug(changedPort.getLocalAddress().getHostAddress() + ":" + changedPort.getLocalPort() + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
 							} else if ((!cr.isChangePort()) && cr.isChangeIP()) {
 								LOGGER.debug("Change ip received in Change Request attribute");
-								// Source address attribute
+								// Source address / Response origin attribute
 								SourceAddress sa = new SourceAddress();
 								sa.setAddress(new Address(changedIP.getLocalAddress().getAddress()));
 								sa.setPort(changedIP.getLocalPort());
 								sendMH.addMessageAttribute(sa);
+								ResponseOrigin ro = new ResponseOrigin();
+								ro.setAddress(new Address(changedIP.getLocalAddress().getAddress()));
+								ro.setPort(changedIP.getLocalPort());
+								sendMH.addMessageAttribute(ro);
 								byte[] data = sendMH.getBytes();
 								DatagramPacket send = new DatagramPacket(data, data.length);
 								if (ra != null) {
 									send.setPort(ra.getPort());
 									send.setAddress(ra.getAddress().getInetAddress());
 								} else {
-									send.setPort(receive.getPort());
+									send.setPort(targetPort);
 									send.setAddress(receive.getAddress());
 								}
 								changedIP.send(send);
 								LOGGER.debug(changedIP.getLocalAddress().getHostAddress() + ":" + changedIP.getLocalPort() + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
 							} else if ((!cr.isChangePort()) && (!cr.isChangeIP())) {
 								LOGGER.debug("Nothing received in Change Request attribute");
-								// Source address attribute
+								// Source address / Response origin attribute
 								SourceAddress sa = new SourceAddress();
 								sa.setAddress(new Address(receiverSocket.getLocalAddress().getAddress()));
 								sa.setPort(receiverSocket.getLocalPort());
 								sendMH.addMessageAttribute(sa);
+								ResponseOrigin ro = new ResponseOrigin();
+								ro.setAddress(new Address(receiverSocket.getLocalAddress().getAddress()));
+								ro.setPort(receiverSocket.getLocalPort());
+								sendMH.addMessageAttribute(ro);
 								byte[] data = sendMH.getBytes();
 								DatagramPacket send = new DatagramPacket(data, data.length);
 								if (ra != null) {
 									send.setPort(ra.getPort());
 									send.setAddress(ra.getAddress().getInetAddress());
 								} else {
-									send.setPort(receive.getPort());
+									send.setPort(targetPort);
 									send.setAddress(receive.getAddress());
 								}
 								receiverSocket.send(send);
 								LOGGER.debug(receiverSocket.getLocalAddress().getHostAddress() + ":" + receiverSocket.getLocalPort() + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
 							} else if (cr.isChangePort() && cr.isChangeIP()) {
 								LOGGER.debug("Change port and ip received in Change Request attribute");
-								// Source address attribute
+								// Source address / Response origin attribute
 								SourceAddress sa = new SourceAddress();
 								sa.setAddress(new Address(changedPortIP.getLocalAddress().getAddress()));
 								sa.setPort(changedPortIP.getLocalPort());
 								sendMH.addMessageAttribute(sa);
+								ResponseOrigin ro = new ResponseOrigin();
+								ro.setAddress(new Address(changedPortIP.getLocalAddress().getAddress()));
+								ro.setPort(changedPortIP.getLocalPort());
+								sendMH.addMessageAttribute(ro);
 								byte[] data = sendMH.getBytes();
 								DatagramPacket send = new DatagramPacket(data, data.length);
 								if (ra != null) {
 									send.setPort(ra.getPort());
 									send.setAddress(ra.getAddress().getInetAddress());
 								} else {
-									send.setPort(receive.getPort());
+									send.setPort(targetPort);
 									send.setAddress(receive.getAddress());
 								}
 								changedPortIP.send(send);
