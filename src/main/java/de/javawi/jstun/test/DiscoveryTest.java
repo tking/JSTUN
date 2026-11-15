@@ -43,6 +43,7 @@ public class DiscoveryTest {
 	String stunServer;
 	int stunServerPort;
 	int timeoutInitValue = 300; // ms
+	int maxWaitTimeMs = 7900; // ms
 	MappedAddress ma = null;
 	ChangedAddress ca = null;
 	boolean nodeNatted = true;
@@ -58,6 +59,14 @@ public class DiscoveryTest {
 		this.sourcePort = sourcePort;
 		this.stunServer = stunServer;
 		this.stunServerPort = stunServerPort;
+	}
+
+	public void setTimeoutInitValue(int timeoutInitValue) {
+		this.timeoutInitValue = timeoutInitValue;
+	}
+
+	public void setMaxWaitTimeMs(int maxWaitTimeMs) {
+		this.maxWaitTimeMs = maxWaitTimeMs;
 	}
 
 	public DiscoveryInfo test() throws UtilityException, SocketException, UnknownHostException, IOException,
@@ -176,7 +185,7 @@ public class DiscoveryTest {
 					return true;
 				}
 			} catch (SocketTimeoutException ste) {
-				if (timeSinceFirstTransmission < 7900) {
+				if (timeSinceFirstTransmission < maxWaitTimeMs) {
 					LOGGER.debug("Test 1: Socket timeout while receiving the response.");
 					timeSinceFirstTransmission += timeout;
 					int timeoutAddValue = (timeSinceFirstTransmission * 2);
@@ -243,7 +252,7 @@ public class DiscoveryTest {
 				}
 				return false;
 			} catch (SocketTimeoutException ste) {
-				if (timeSinceFirstTransmission < 7900) {
+				if (timeSinceFirstTransmission < maxWaitTimeMs) {
 					LOGGER.debug("Test 2: Socket timeout while receiving the response.");
 					timeSinceFirstTransmission += timeout;
 					int timeoutAddValue = (timeSinceFirstTransmission * 2);
@@ -323,7 +332,7 @@ public class DiscoveryTest {
 				}
 				return true;
 			} catch (SocketTimeoutException ste2) {
-				if (timeSinceFirstTransmission < 7900) {
+				if (timeSinceFirstTransmission < maxWaitTimeMs) {
 					LOGGER.debug("Test 1 redo with changed address: Socket timeout while receiving the response.");
 					timeSinceFirstTransmission += timeout;
 					int timeoutAddValue = (timeSinceFirstTransmission * 2);
@@ -382,7 +391,7 @@ public class DiscoveryTest {
 					return;
 				}
 			} catch (SocketTimeoutException ste) {
-				if (timeSinceFirstTransmission < 7900) {
+				if (timeSinceFirstTransmission < maxWaitTimeMs) {
 					LOGGER.debug("Test 3: Socket timeout while receiving the response.");
 					timeSinceFirstTransmission += timeout;
 					int timeoutAddValue = (timeSinceFirstTransmission * 2);

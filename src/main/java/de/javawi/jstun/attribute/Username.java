@@ -11,6 +11,8 @@
 
 package de.javawi.jstun.attribute;
 
+import java.nio.charset.StandardCharsets;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
@@ -35,7 +37,8 @@ public class Username extends MessageAttribute {
 	}
 	
 	public byte[] getBytes() throws UtilityException {
-		int length = username.length();
+		byte[] temp = (username != null ? username : "").getBytes(StandardCharsets.UTF_8);
+		int length = temp.length;
 		// username header
 		if ((length % 4) != 0) {
 			length += 4 - (length % 4);
@@ -47,17 +50,20 @@ public class Username extends MessageAttribute {
 		// type
 		System.arraycopy(Utility.integerToTwoBytes(typeToInteger(type)), 0, result, 0, 2);
 		// length
-		System.arraycopy(Utility.integerToTwoBytes(length-4), 0, result, 2, 2);
+		System.arraycopy(Utility.integerToTwoBytes(temp.length), 0, result, 2, 2);
 		
 		// username header
-		byte[] temp = username.getBytes();
 		System.arraycopy(temp, 0, result, 4, temp.length);
 		return result;
 	}
 	
 	public static Username parse(byte[] data) {
 		Username result = new Username();
-		String username = new String(data);
+		int end = data.length;
+		while (end > 0 && data[end - 1] == 0) {
+			end--;
+		}
+		String username = new String(data, 0, end, StandardCharsets.UTF_8);
 		result.setUsername(username);
 		return result;
 	}

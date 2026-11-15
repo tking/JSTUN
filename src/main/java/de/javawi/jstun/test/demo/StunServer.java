@@ -52,18 +52,23 @@ public class StunServer {
 	private boolean doRun;
 	
 	public StunServer(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary) throws SocketException {
+		this(primaryPort, primary, secondaryPort, secondary, primaryPort, secondaryPort);
+	}
+
+	public StunServer(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary,
+			int secondaryIpPrimaryPort, int secondaryIpSecondaryPort) throws SocketException {
 		sockets = new Vector<DatagramSocket>();
 		sockets.add(new DatagramSocket(primaryPort, primary));
 		sockets.add(new DatagramSocket(secondaryPort, primary));
-		sockets.add(new DatagramSocket(primaryPort, secondary));
-		sockets.add(new DatagramSocket(secondaryPort, secondary));
+		sockets.add(new DatagramSocket(secondaryIpPrimaryPort, secondary));
+		sockets.add(new DatagramSocket(secondaryIpSecondaryPort, secondary));
 	}
 	
 	public void start() throws SocketException {
 		doRun = true;
 		for (DatagramSocket socket : sockets) {
 			socket.setReceiveBufferSize(2000);
-			socket.setSoTimeout(5000);
+			socket.setSoTimeout(500);
 			StunServerReceiverThread ssrt = new StunServerReceiverThread(socket);
 			ssrt.start();
 		}
@@ -73,6 +78,7 @@ public class StunServer {
 		doRun = false;
 		final long start = System.currentTimeMillis();
 		for ( DatagramSocket socket : sockets ) {
+			socket.close();
 			// Wait for a wile to allow sockets to disconnect gracefully.
 			while ( !socket.isClosed() && System.currentTimeMillis() - start < 7000 ) {
 				try {
@@ -81,7 +87,6 @@ public class StunServer {
 					e.printStackTrace();
 				}
 			}
-			socket.close();
 		}
 	}
 
@@ -100,16 +105,11 @@ public class StunServer {
 		
 		StunServerReceiverThread(DatagramSocket datagramSocket) {
 			this.receiverSocket = datagramSocket;
-			for (DatagramSocket socket : sockets) {
-				if ((socket.getLocalPort() != receiverSocket.getLocalPort()) &&
-					(socket.getLocalAddress().equals(receiverSocket.getLocalAddress())))
-					changedPort = socket;
-				if ((socket.getLocalPort() == receiverSocket.getLocalPort()) &&
-					(!socket.getLocalAddress().equals(receiverSocket.getLocalAddress())))
-					changedIP = socket;
-				if ((socket.getLocalPort() != receiverSocket.getLocalPort()) &&
-					(!socket.getLocalAddress().equals(receiverSocket.getLocalAddress())))
-					changedPortIP = socket;
+			int idx = sockets.indexOf(receiverSocket);
+			if (idx >= 0 && sockets.size() == 4) {
+				changedPort = sockets.get(idx ^ 1);
+				changedIP = sockets.get(idx ^ 2);
+				changedPortIP = sockets.get(idx ^ 3);
 			}
 		}
 		
@@ -263,6 +263,11 @@ public class StunServer {
 					}
 				} catch (SocketTimeoutException ioe) {
 					// No data for SO_TIMEOUT milliseconds.
+				} catch (SocketException se) {
+					if (!doRun || receiverSocket.isClosed()) {
+						break;
+					}
+					se.printStackTrace();
 				} catch (IOException ioe) {
 					ioe.printStackTrace();
 				} catch (MessageAttributeParsingException mape) {
