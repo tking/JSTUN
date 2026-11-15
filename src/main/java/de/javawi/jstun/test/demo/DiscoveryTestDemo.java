@@ -18,12 +18,16 @@ import java.util.Enumeration;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import de.javawi.jstun.test.DiscoveryInfo;
 import de.javawi.jstun.test.DiscoveryTest;
 
 public class DiscoveryTestDemo implements Runnable {
+	private static final Logger LOGGER = LoggerFactory.getLogger(DiscoveryTestDemo.class);
 	InetAddress iaddress;
 	int port;
 	
@@ -45,12 +49,15 @@ public class DiscoveryTestDemo implements Runnable {
 			// larry.gloo.net:3478
 			// stun.xten.net:3478
 			// stun.sipgate.net:10000
-			System.out.println(test.test());
+			DiscoveryInfo info = test.test();
+			LOGGER.info("DiscoveryTest result for {}: {}", iaddress, info);
+			System.out.println(info);
 		} catch (BindException be) {
+			LOGGER.warn("Unable to bind {}: {}", iaddress, be.getMessage());
 			System.out.println(iaddress.toString() + ": " + be.getMessage());
 		} catch (Exception e) {
+			LOGGER.error("Error running DiscoveryTestDemo on {}: {}", iaddress, e.getMessage(), e);
 			System.out.println(e.getMessage());
-			e.printStackTrace();
 		}
 	}
 	
@@ -58,8 +65,8 @@ public class DiscoveryTestDemo implements Runnable {
 		try {
 			Handler fh = new FileHandler("logging.txt");
 			fh.setFormatter(new SimpleFormatter());
-			Logger.getLogger("de.javawi.jstun").addHandler(fh);
-			Logger.getLogger("de.javawi.jstun").setLevel(Level.ALL);
+			java.util.logging.Logger.getLogger("de.javawi.jstun").addHandler(fh);
+			java.util.logging.Logger.getLogger("de.javawi.jstun").setLevel(Level.ALL);
 			
 			Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
 			while (ifaces.hasMoreElements()) {
@@ -76,6 +83,7 @@ public class DiscoveryTestDemo implements Runnable {
 				}
 			}
 		} catch (Exception e) {
+			LOGGER.error("Error initializing DiscoveryTestDemo: {}", e.getMessage(), e);
 			System.out.println(e.getMessage());
 		}
 	}

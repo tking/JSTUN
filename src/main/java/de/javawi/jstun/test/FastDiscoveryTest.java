@@ -112,12 +112,15 @@ public class FastDiscoveryTest {
 				if (returnTest2 != UNINITIALIZED) {
 					if ((returnTest2 == CONNECTION_ESTABLISHED_NO_ERROR) && (!nodeNatted)) {
 						di.setOpenAccess();
+						LOGGER.debug("Node has open access to the Internet (or, at least the node is behind a full-cone NAT without translation).");
 					}
 					if ((returnTest2 == CONNECTION_ESTABLISHED_NO_ERROR) && (nodeNatted)) {
 						di.setFullCone();
+						LOGGER.debug("Node is behind a full-cone NAT.");
 					}
 					if ((returnTest2 == CONNECTION_TIMEOUT) && (!nodeNatted)) {
 						di.setSymmetricUDPFirewall();
+						LOGGER.debug("Node is behind a symmetric UDP firewall.");
 					}
 				}
 
@@ -145,14 +148,18 @@ public class FastDiscoveryTest {
 						if (returnTest3 != UNINITIALIZED) {
 							if ((returnTest3 == CONNECTION_ESTABLISHED_NO_ERROR) && (nodeNatted)) {
 								di.setRestrictedCone();
+								LOGGER.debug("Node is behind a restricted NAT.");
 							}
 							if (returnTest3 == CONNECTION_TIMEOUT) {
 								di.setPortRestrictedCone();
+								LOGGER.debug("Node is behind a port restricted NAT.");
 							}
 						}
 					}
 				}
 			}
+			LOGGER.info("FastDiscoveryTest completed for {}: publicIP={}, publicPort={}.",
+					sourceIaddress.getHostAddress(), di.getPublicIP(), di.getPublicPort());
 		} finally {
 			if (socketTest1 != null) {
 				socketTest1.close();
@@ -456,6 +463,7 @@ public class FastDiscoveryTest {
 			try {
 				returnTest1 = fdt.test1();
 			} catch (Exception e) {
+				LOGGER.warn("Exception in Test1Thread: {}", e.getMessage(), e);
 			}
 		}
 
@@ -477,6 +485,7 @@ public class FastDiscoveryTest {
 			try {
 				returnTest2 = fdt.test2();
 			} catch (Exception e) {
+				LOGGER.warn("Exception in Test2Thread: {}", e.getMessage(), e);
 			}
 		}
 
@@ -498,6 +507,7 @@ public class FastDiscoveryTest {
 			try {
 				returnTest1Redo = fdt.test1Redo();
 			} catch (Exception e) {
+				LOGGER.warn("Exception in Test1RedoThread: {}", e.getMessage(), e);
 			}
 		}
 
@@ -519,6 +529,7 @@ public class FastDiscoveryTest {
 			try {
 				returnTest3 = fdt.test3();
 			} catch (Exception e) {
+				LOGGER.warn("Exception in Test3Thread: {}", e.getMessage(), e);
 			}
 		}
 

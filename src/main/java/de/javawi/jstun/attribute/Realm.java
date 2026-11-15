@@ -13,10 +13,14 @@ package de.javawi.jstun.attribute;
 
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class Realm extends MessageAttribute {
+	private static final Logger LOGGER = LoggerFactory.getLogger(Realm.class);
 	private String realm = "";
 
 	public Realm() {
@@ -58,6 +62,7 @@ public class Realm extends MessageAttribute {
 			end--;
 		}
 		result.setRealm(new String(data, 0, end, StandardCharsets.UTF_8));
+		LOGGER.debug("Message Attribute: Realm parsed: {}.", result.getRealm());
 		return result;
 	}
 }

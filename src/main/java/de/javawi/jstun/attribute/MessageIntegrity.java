@@ -19,10 +19,14 @@ import java.util.Arrays;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class MessageIntegrity extends MessageAttribute {
+	private static final Logger LOGGER = LoggerFactory.getLogger(MessageIntegrity.class);
 	private byte[] hmac = new byte[20];
 
 	public MessageIntegrity() {
@@ -111,6 +115,7 @@ public class MessageIntegrity extends MessageAttribute {
 		}
 		MessageIntegrity mi = new MessageIntegrity();
 		System.arraycopy(data, 0, mi.hmac, 0, 20);
+		LOGGER.debug("Message Attribute: Message Integrity parsed (20-byte HMAC-SHA1).");
 		return mi;
 	}
 }

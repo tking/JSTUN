@@ -85,6 +85,8 @@ public class DiscoveryTest {
 					}
 				}
 			}
+			LOGGER.info("DiscoveryTest completed for {}: publicIP={}, publicPort={}.",
+					sourceIaddress.getHostAddress(), di.getPublicIP(), di.getPublicPort());
 		} finally {
 			if (socketTest1 != null) {
 				socketTest1.close();
