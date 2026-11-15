@@ -42,6 +42,9 @@ public class Address {
 	}
 	
 	public Address(String address) throws UtilityException {
+		if (address == null || address.isEmpty()) {
+			throw new UtilityException("Address is in incorrect format.");
+		}
 		// ipv4
 		if (address.contains(".")) {
 			StringTokenizer st = new StringTokenizer(address, ".");
@@ -51,7 +54,12 @@ public class Address {
 			int i = 0;
 			this.octets = new int[4];
 			while (st.hasMoreTokens()) {
-				int temp = Integer.parseInt(st.nextToken());
+				int temp;
+				try {
+					temp = Integer.parseInt(st.nextToken());
+				} catch (NumberFormatException nfe) {
+					throw new UtilityException("Address is in incorrect format.");
+				}
 				if ((temp < 0) || (temp > 255)) {
 					throw new UtilityException("Address is in incorrect format.");
 				}
@@ -60,14 +68,20 @@ public class Address {
 			}
 		} else {
 			// ipv6
-			StringTokenizer st = new StringTokenizer(address, ":");
+			String expanded = expandIPv6(address);
+			StringTokenizer st = new StringTokenizer(expanded, ":");
 			if (st.countTokens() != 8) {
 				throw new UtilityException("8 hex values in address string are required.");
 			}
 			int i = 0;
 			this.octets = new int[16];
 			while (st.hasMoreTokens()) {
-				int temp = Integer.parseInt(st.nextToken(), 16);
+				int temp;
+				try {
+					temp = Integer.parseInt(st.nextToken(), 16);
+				} catch (NumberFormatException nfe) {
+					throw new UtilityException("Address is in incorrect format.");
+				}
 				if ((temp < 0) || (temp > 65535)) {
 					throw new UtilityException("Address is in incorrect format.");
 				}
@@ -76,6 +90,41 @@ public class Address {
 				i += 2;
 			}
 		}
+	}
+
+	private static String expandIPv6(String address) throws UtilityException {
+		int firstDoubleColon = address.indexOf("::");
+		if (firstDoubleColon == -1) {
+			return address;
+		}
+		if (address.indexOf("::", firstDoubleColon + 2) != -1 || address.contains(":::")) {
+			throw new UtilityException("Address is in incorrect format.");
+		}
+		String leftPart = address.substring(0, firstDoubleColon);
+		String rightPart = address.substring(firstDoubleColon + 2);
+		if (leftPart.startsWith(":") || leftPart.endsWith(":") || rightPart.startsWith(":") || rightPart.endsWith(":")) {
+			throw new UtilityException("Address is in incorrect format.");
+		}
+		String[] leftGroups = leftPart.isEmpty() ? new String[0] : leftPart.split(":", -1);
+		String[] rightGroups = rightPart.isEmpty() ? new String[0] : rightPart.split(":", -1);
+		int missingGroups = 8 - (leftGroups.length + rightGroups.length);
+		if (missingGroups < 1) {
+			throw new UtilityException("8 hex values in address string are required.");
+		}
+		StringBuilder sb = new StringBuilder();
+		for (String g : leftGroups) {
+			if (sb.length() > 0) sb.append(':');
+			sb.append(g);
+		}
+		for (int i = 0; i < missingGroups; i++) {
+			if (sb.length() > 0) sb.append(':');
+			sb.append('0');
+		}
+		for (String g : rightGroups) {
+			if (sb.length() > 0) sb.append(':');
+			sb.append(g);
+		}
+		return sb.toString();
 	}
 	
 	public Address(byte[] address) throws UtilityException {
