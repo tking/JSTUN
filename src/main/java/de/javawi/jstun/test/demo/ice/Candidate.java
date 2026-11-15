@@ -14,6 +14,7 @@ package de.javawi.jstun.test.demo.ice;
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.Objects;
 
 import de.javawi.jstun.util.Address;
 import de.javawi.jstun.util.UtilityException;
@@ -26,6 +27,8 @@ public class Candidate implements Comparable<Candidate> {
 	};
 
 	private DatagramSocket socket;
+	private Address address;
+	private int port;
 	private CandidateType type;
 	private short componentId;
 	private int priority;
@@ -36,8 +39,10 @@ public class Candidate implements Comparable<Candidate> {
 	public Candidate(Address address, short componentId)
 			throws SocketException, UnknownHostException, UtilityException {
 		this.socket = new DatagramSocket(0, address.getInetAddress());
+		this.address = address;
+		this.port = this.socket.getLocalPort();
 		this.type = CandidateType.Local;
-		this.componentId = componentId;
+		setComponentId(componentId);
 		this.priority = 0;
 		this.base = this;
 		this.isInUse = false;
@@ -45,11 +50,27 @@ public class Candidate implements Comparable<Candidate> {
 
 	public Candidate(Address address, CandidateType type, short componentId, Candidate base)
 			throws SocketException, UnknownHostException, UtilityException {
-		this.socket = new DatagramSocket(0, address.getInetAddress());
+		this(address, (base != null) ? base.getPort() : 0, type, componentId, base);
+	}
+
+	public Candidate(Address address, int port, CandidateType type, short componentId, Candidate base)
+			throws SocketException, UnknownHostException, UtilityException {
+		if (type == CandidateType.Local) {
+			this.socket = new DatagramSocket(port, address.getInetAddress());
+			this.address = address;
+			this.port = this.socket.getLocalPort();
+			this.base = (base != null) ? base : this;
+		} else {
+			// Non-local candidates (e.g. ServerReflexive with a NAT's public IP) cannot bind
+			// a local socket to the remote/public address; they share their base candidate's socket.
+			this.socket = (base != null) ? base.socket : null;
+			this.address = address;
+			this.port = (port > 0) ? port : ((base != null) ? base.getPort() : 0);
+			this.base = (base != null) ? base : this;
+		}
 		this.type = type;
 		setComponentId(componentId);
 		this.priority = 0;
-		this.base = base;
 		this.isInUse = false;
 	}
 
@@ -92,11 +113,17 @@ public class Candidate implements Comparable<Candidate> {
 	}
 
 	public Address getAddress() throws UtilityException {
+		if (address != null) {
+			return address;
+		}
 		return new Address(socket.getLocalAddress().getAddress());
 	}
 
 	public int getPort() {
-		return socket.getLocalPort();
+		if (port > 0) {
+			return port;
+		}
+		return (socket != null) ? socket.getLocalPort() : 0;
 	}
 
 	public void setInUse(boolean isInUse) {
@@ -107,15 +134,32 @@ public class Candidate implements Comparable<Candidate> {
 		return isInUse;
 	}
 
-	public int compareTo(Candidate cand) {
-		return cand.getPriority() - getPriority();
+	public void closeSocket() {
+		if (socket != null && !socket.isClosed()) {
+			socket.close();
+		}
 	}
 
+	@Override
+	public int compareTo(Candidate cand) {
+		return Integer.compare(cand.getPriority(), getPriority());
+	}
+
+	@Override
 	public boolean equals(Object o) {
-		if (o == null)
-			return false;
-		if ((((Candidate) o).socket.equals(socket)) && (((Candidate) o).base.equals(base)))
+		if (this == o)
 			return true;
-		return false;
+		if (!(o instanceof Candidate))
+			return false;
+		Candidate other = (Candidate) o;
+		return port == other.port
+				&& componentId == other.componentId
+				&& type == other.type
+				&& Objects.equals(address, other.address);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(address, port, type, componentId);
 	}
 }

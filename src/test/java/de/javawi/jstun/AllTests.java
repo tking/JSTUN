@@ -18,11 +18,18 @@ import de.javawi.jstun.attribute.MappedAddressTest;
 import de.javawi.jstun.attribute.Rfc5769TestVectorsTest;
 import de.javawi.jstun.header.MessageHeaderTest;
 import de.javawi.jstun.test.Rfc5780AttributesAndDiscoveryTest;
+import de.javawi.jstun.test.demo.ice.ICENegotiatorTest;
 import de.javawi.jstun.util.AddressTest;
 
 @Suite
-@SelectClasses({ AddressTest.class, MappedAddressTest.class, MessageHeaderTest.class, Rfc5769TestVectorsTest.class,
-		Rfc5780AttributesAndDiscoveryTest.class })
+@SelectClasses({
+	AddressTest.class,
+	MappedAddressTest.class,
+	MessageHeaderTest.class,
+	Rfc5769TestVectorsTest.class,
+	Rfc5780AttributesAndDiscoveryTest.class,
+	ICENegotiatorTest.class
+})
 public class AllTests {
 
 }
