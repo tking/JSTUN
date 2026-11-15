@@ -54,6 +54,10 @@ public class FastDiscoveryTest {
 	final static int CONNECTION_ESTABLISHED_NO_ERROR = 1;
 	final static int CONNECTION_TIMEOUT = 2;
 
+	public FastDiscoveryTest(InetAddress sourceIaddress, String stunServer, int stunServerPort) {
+		this(sourceIaddress, 0, stunServer, stunServerPort);
+	}
+
 	public FastDiscoveryTest(InetAddress sourceIaddress, int sourcePort, String stunServer, int stunServerPort) {
 		this.sourceIaddress = sourceIaddress;
 		this.sourcePort = sourcePort;
@@ -72,76 +76,78 @@ public class FastDiscoveryTest {
 		int returnTest2 = UNINITIALIZED;
 		int returnTest3 = UNINITIALIZED;
 
-		// run test1 and test2 in parallel
-		// run test1Redo and test3 in parallel
+		try {
+			// run test1 and test2 in parallel
+			// run test1Redo and test3 in parallel
 
-		Test1Thread t1t = new Test1Thread(this);
-		t1t.start();
+			Test1Thread t1t = new Test1Thread(this);
+			t1t.start();
 
-		Test2Thread t2t = new Test2Thread(this);
-		t2t.start();
+			Test2Thread t2t = new Test2Thread(this);
+			t2t.start();
 
-		while (t1t.isAlive() || t2t.isAlive()) {
-			try {
-				Thread.currentThread().sleep(100);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-
-		boolean returnTest1 = t1t.getReturnTest1();
-
-		if (returnTest1) {
-			returnTest2 = test2();
-
-			// evaluate result of test1 and test2
-			if (returnTest2 != UNINITIALIZED) {
-				if ((returnTest2 == CONNECTION_ESTABLISHED_NO_ERROR) && (!nodeNatted)) {
-					di.setOpenAccess();
-				}
-				if ((returnTest2 == CONNECTION_ESTABLISHED_NO_ERROR) && (nodeNatted)) {
-					di.setFullCone();
-				}
-				if ((returnTest2 == CONNECTION_TIMEOUT) && (!nodeNatted)) {
-					di.setSymmetricUDPFirewall();
+			while (t1t.isAlive() || t2t.isAlive()) {
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
 				}
 			}
 
-			if ((returnTest2 == CONNECTION_TIMEOUT) && (nodeNatted)) {
-				// start test1redo and test3 in parallel
+			boolean returnTest1 = t1t.getReturnTest1();
 
-				Test1RedoThread t1rt = new Test1RedoThread(this);
-				t1rt.start();
+			if (returnTest1) {
+				returnTest2 = t2t.getReturnTest2();
 
-				Test3Thread t3t = new Test3Thread(this);
-				t3t.start();
-
-				while (t1rt.isAlive() || t3t.isAlive()) {
-					try {
-						Thread.currentThread().sleep(100);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
+				// evaluate result of test1 and test2
+				if (returnTest2 != UNINITIALIZED) {
+					if ((returnTest2 == CONNECTION_ESTABLISHED_NO_ERROR) && (!nodeNatted)) {
+						di.setOpenAccess();
+					}
+					if ((returnTest2 == CONNECTION_ESTABLISHED_NO_ERROR) && (nodeNatted)) {
+						di.setFullCone();
+					}
+					if ((returnTest2 == CONNECTION_TIMEOUT) && (!nodeNatted)) {
+						di.setSymmetricUDPFirewall();
 					}
 				}
 
-				if (t1rt.getReturnTest1Redo()) {
-					returnTest3 = t3t.getReturnTest3();
+				if ((returnTest2 == CONNECTION_TIMEOUT) && (nodeNatted)) {
+					// start test1redo and test3 in parallel
 
-					// evaluate test3
-					if (returnTest3 != UNINITIALIZED) {
-						if ((returnTest3 == CONNECTION_ESTABLISHED_NO_ERROR) && (nodeNatted)) {
-							di.setRestrictedCone();
+					Test1RedoThread t1rt = new Test1RedoThread(this);
+					t1rt.start();
+
+					Test3Thread t3t = new Test3Thread(this);
+					t3t.start();
+
+					while (t1rt.isAlive() || t3t.isAlive()) {
+						try {
+							Thread.sleep(100);
+						} catch (InterruptedException e) {
+							Thread.currentThread().interrupt();
 						}
-						if (returnTest3 == CONNECTION_TIMEOUT) {
-							di.setPortRestrictedCone();
+					}
+
+					if (t1rt.getReturnTest1Redo()) {
+						returnTest3 = t3t.getReturnTest3();
+
+						// evaluate test3
+						if (returnTest3 != UNINITIALIZED) {
+							if ((returnTest3 == CONNECTION_ESTABLISHED_NO_ERROR) && (nodeNatted)) {
+								di.setRestrictedCone();
+							}
+							if (returnTest3 == CONNECTION_TIMEOUT) {
+								di.setPortRestrictedCone();
+							}
 						}
 					}
 				}
 			}
-		}
-
-		if (socketTest1 != null) {
-			socketTest1.close();
+		} finally {
+			if (socketTest1 != null) {
+				socketTest1.close();
+			}
 		}
 
 		return di;
@@ -180,31 +186,32 @@ public class FastDiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
+		InetAddress serverAddress = InetAddress.getByName(stunServer);
+		if (socketTest1 != null) {
+			socketTest1.close();
+		}
+		socketTest1 = new DatagramSocket(new InetSocketAddress(sourceIaddress, sourcePort));
+		socketTest1.setReuseAddress(true);
+
+		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
+		sendMH.generateTransactionID();
+
+		ChangeRequest changeRequest = new ChangeRequest();
+		sendMH.addMessageAttribute(changeRequest);
+
+		byte[] data = sendMH.getBytes();
+
 		while (true) {
 			try {
-				// Test 1 including response
-				if (socketTest1 != null) {
-					socketTest1.close();
-				}
-				socketTest1 = new DatagramSocket(new InetSocketAddress(sourceIaddress, sourcePort));
-				socketTest1.setReuseAddress(true);
-				socketTest1.connect(InetAddress.getByName(stunServer), stunServerPort);
+				// Test 1 including response on unconnected socketTest1
 				socketTest1.setSoTimeout(timeout);
-
-				MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
-				sendMH.generateTransactionID();
-
-				ChangeRequest changeRequest = new ChangeRequest();
-				sendMH.addMessageAttribute(changeRequest);
-
-				byte[] data = sendMH.getBytes();
-				DatagramPacket send = new DatagramPacket(data, data.length);
+				DatagramPacket send = new DatagramPacket(data, data.length, serverAddress, stunServerPort);
 				socketTest1.send(send);
 				LOGGER.debug("Test 1: Binding Request sent.");
 
 				MessageHeader receiveMH = new MessageHeader();
 				while (!(receiveMH.equalTransactionID(sendMH))) {
-					DatagramPacket receive = new DatagramPacket(new byte[200], 200);
+					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
 					socketTest1.receive(receive);
 					receiveMH = MessageHeader.parseHeader(receive.getData());
 					receiveMH.parseAttributes(receive.getData());
@@ -255,41 +262,32 @@ public class FastDiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
-		while (true) {
-			try {
-				// Test 2 including response
-				int localPort;
-				InetAddress localAddress;
-				MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
-				try (DatagramSocket sendSocket = new DatagramSocket(
-						new InetSocketAddress(sourceIaddress, sourcePort))) {
-					sendSocket.connect(InetAddress.getByName(stunServer), stunServerPort);
-					sendSocket.setSoTimeout(timeout);
+		InetAddress serverAddress = InetAddress.getByName(stunServer);
 
-					sendMH.generateTransactionID();
+		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
+		sendMH.generateTransactionID();
 
-					ChangeRequest changeRequest = new ChangeRequest();
-					changeRequest.setChangeIP();
-					changeRequest.setChangePort();
-					sendMH.addMessageAttribute(changeRequest);
+		ChangeRequest changeRequest = new ChangeRequest();
+		changeRequest.setChangeIP();
+		changeRequest.setChangePort();
+		sendMH.addMessageAttribute(changeRequest);
 
-					byte[] data = sendMH.getBytes();
-					DatagramPacket send = new DatagramPacket(data, data.length);
-					sendSocket.send(send);
+		byte[] data = sendMH.getBytes();
+
+		try (DatagramSocket socket = new DatagramSocket(new InetSocketAddress(sourceIaddress, 0))) {
+			socket.setReuseAddress(true);
+			while (true) {
+				try {
+					// Single unconnected socket so response from alternate IP/port is received without close/re-bind race
+					socket.setSoTimeout(timeout);
+					DatagramPacket send = new DatagramPacket(data, data.length, serverAddress, stunServerPort);
+					socket.send(send);
 					LOGGER.debug("Test 2: Binding Request sent.");
-
-					localPort = sendSocket.getLocalPort();
-					localAddress = sendSocket.getLocalAddress();
-				}
-
-				try (DatagramSocket receiveSocket = new DatagramSocket(localPort, localAddress)) {
-					receiveSocket.connect(ca.getAddress().getInetAddress(), ca.getPort());
-					receiveSocket.setSoTimeout(timeout);
 
 					MessageHeader receiveMH = new MessageHeader();
 					while (!(receiveMH.equalTransactionID(sendMH))) {
-						DatagramPacket receive = new DatagramPacket(new byte[200], 200);
-						receiveSocket.receive(receive);
+						DatagramPacket receive = new DatagramPacket(new byte[512], 512);
+						socket.receive(receive);
 						receiveMH = MessageHeader.parseHeader(receive.getData());
 						receiveMH.parseAttributes(receive.getData());
 					}
@@ -301,15 +299,15 @@ public class FastDiscoveryTest {
 						return ERROR;
 					}
 					return CONNECTION_ESTABLISHED_NO_ERROR;
-				}
-			} catch (SocketTimeoutException ste) {
-				if (timeSinceFirstTransmission < 300) {
-					LOGGER.debug("Test 2: Socket timeout while receiving the response.");
-					timeSinceFirstTransmission += timeout;
-				} else {
-					LOGGER.debug(
-							"Test 2: Socket timeout while receiving the response. Maximum retry limit exceed. Give up.");
-					return CONNECTION_TIMEOUT;
+				} catch (SocketTimeoutException ste) {
+					if (timeSinceFirstTransmission < 300) {
+						LOGGER.debug("Test 2: Socket timeout while receiving the response.");
+						timeSinceFirstTransmission += timeout;
+					} else {
+						LOGGER.debug(
+								"Test 2: Socket timeout while receiving the response. Maximum retry limit exceed. Give up.");
+						return CONNECTION_TIMEOUT;
+					}
 				}
 			}
 		}
@@ -319,28 +317,30 @@ public class FastDiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
+		InetAddress changedServerAddress = ca.getAddress().getInetAddress();
+		int changedServerPort = ca.getPort();
+
+		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
+		sendMH.generateTransactionID();
+
+		ChangeRequest changeRequest = new ChangeRequest();
+		sendMH.addMessageAttribute(changeRequest);
+
+		byte[] data = sendMH.getBytes();
+
 		while (true) {
 			// redo test 1 with address and port as offered in the changed-address message
 			// attribute
 			try {
-				// Test 1 with changed port and address values
-				socketTest1.connect(ca.getAddress().getInetAddress(), ca.getPort());
+				// Test 1 with changed port and address values on unconnected socketTest1
 				socketTest1.setSoTimeout(timeout);
-
-				MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
-				sendMH.generateTransactionID();
-
-				ChangeRequest changeRequest = new ChangeRequest();
-				sendMH.addMessageAttribute(changeRequest);
-
-				byte[] data = sendMH.getBytes();
-				DatagramPacket send = new DatagramPacket(data, data.length);
+				DatagramPacket send = new DatagramPacket(data, data.length, changedServerAddress, changedServerPort);
 				socketTest1.send(send);
 				LOGGER.debug("Test 1 redo with changed address: Binding Request sent.");
 
 				MessageHeader receiveMH = new MessageHeader();
 				while (!(receiveMH.equalTransactionID(sendMH))) {
-					DatagramPacket receive = new DatagramPacket(new byte[200], 200);
+					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
 					socketTest1.receive(receive);
 					receiveMH = MessageHeader.parseHeader(receive.getData());
 					receiveMH.parseAttributes(receive.getData());
@@ -384,40 +384,31 @@ public class FastDiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
-		while (true) {
-			try {
-				// Test 3 including response
-				int localPort;
-				InetAddress localAddress;
-				MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
-				try (DatagramSocket sendSocket = new DatagramSocket(
-						new InetSocketAddress(sourceIaddress, sourcePort))) {
-					sendSocket.connect(InetAddress.getByName(stunServer), stunServerPort);
-					sendSocket.setSoTimeout(timeout);
+		InetAddress serverAddress = InetAddress.getByName(stunServer);
 
-					sendMH.generateTransactionID();
+		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
+		sendMH.generateTransactionID();
 
-					ChangeRequest changeRequest = new ChangeRequest();
-					changeRequest.setChangePort();
-					sendMH.addMessageAttribute(changeRequest);
+		ChangeRequest changeRequest = new ChangeRequest();
+		changeRequest.setChangePort();
+		sendMH.addMessageAttribute(changeRequest);
 
-					byte[] data = sendMH.getBytes();
-					DatagramPacket send = new DatagramPacket(data, data.length);
-					sendSocket.send(send);
+		byte[] data = sendMH.getBytes();
+
+		try (DatagramSocket socket = new DatagramSocket(new InetSocketAddress(sourceIaddress, 0))) {
+			socket.setReuseAddress(true);
+			while (true) {
+				try {
+					// Single unconnected socket so response from changed port is received without close/re-bind race
+					socket.setSoTimeout(timeout);
+					DatagramPacket send = new DatagramPacket(data, data.length, serverAddress, stunServerPort);
+					socket.send(send);
 					LOGGER.debug("Test 3: Binding Request sent.");
-
-					localPort = sendSocket.getLocalPort();
-					localAddress = sendSocket.getLocalAddress();
-				}
-
-				try (DatagramSocket receiveSocket = new DatagramSocket(localPort, localAddress)) {
-					receiveSocket.connect(InetAddress.getByName(stunServer), ca.getPort());
-					receiveSocket.setSoTimeout(timeout);
 
 					MessageHeader receiveMH = new MessageHeader();
 					while (!(receiveMH.equalTransactionID(sendMH))) {
-						DatagramPacket receive = new DatagramPacket(new byte[200], 200);
-						receiveSocket.receive(receive);
+						DatagramPacket receive = new DatagramPacket(new byte[512], 512);
+						socket.receive(receive);
 						receiveMH = MessageHeader.parseHeader(receive.getData());
 						receiveMH.parseAttributes(receive.getData());
 					}
@@ -429,15 +420,15 @@ public class FastDiscoveryTest {
 						return ERROR;
 					}
 					return CONNECTION_ESTABLISHED_NO_ERROR;
-				}
-			} catch (SocketTimeoutException ste) {
-				if (timeSinceFirstTransmission < 300) {
-					LOGGER.debug("Test 3: Socket timeout while receiving the response.");
-					timeSinceFirstTransmission += timeout;
-				} else {
-					LOGGER.debug(
-							"Test 3: Socket timeout while receiving the response. Maximum retry limit exceed. Give up.");
-					return CONNECTION_TIMEOUT;
+				} catch (SocketTimeoutException ste) {
+					if (timeSinceFirstTransmission < 300) {
+						LOGGER.debug("Test 3: Socket timeout while receiving the response.");
+						timeSinceFirstTransmission += timeout;
+					} else {
+						LOGGER.debug(
+								"Test 3: Socket timeout while receiving the response. Maximum retry limit exceed. Give up.");
+						return CONNECTION_TIMEOUT;
+					}
 				}
 			}
 		}
@@ -466,7 +457,7 @@ public class FastDiscoveryTest {
 
 	public class Test2Thread extends Thread {
 		private FastDiscoveryTest fdt;
-		private int returnTest2;
+		private int returnTest2 = UNINITIALIZED;
 
 		public Test2Thread(FastDiscoveryTest fdt) {
 			this.fdt = fdt;
@@ -508,7 +499,7 @@ public class FastDiscoveryTest {
 
 	public class Test3Thread extends Thread {
 		private FastDiscoveryTest fdt;
-		private int returnTest3;
+		private int returnTest3 = UNINITIALIZED;
 
 		public Test3Thread(FastDiscoveryTest fdt) {
 			this.fdt = fdt;

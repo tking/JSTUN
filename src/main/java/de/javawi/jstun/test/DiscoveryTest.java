@@ -49,6 +49,10 @@ public class DiscoveryTest {
 	DatagramSocket socketTest1 = null;
 	DiscoveryInfo di = null;
 
+	public DiscoveryTest(InetAddress sourceIaddress, String stunServer, int stunServerPort) {
+		this(sourceIaddress, 0, stunServer, stunServerPort);
+	}
+
 	public DiscoveryTest(InetAddress sourceIaddress, int sourcePort, String stunServer, int stunServerPort) {
 		this.sourceIaddress = sourceIaddress;
 		this.sourcePort = sourcePort;
@@ -114,31 +118,32 @@ public class DiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
+		InetAddress serverAddress = InetAddress.getByName(stunServer);
+		if (socketTest1 != null) {
+			socketTest1.close();
+		}
+		socketTest1 = new DatagramSocket(new InetSocketAddress(sourceIaddress, sourcePort));
+		socketTest1.setReuseAddress(true);
+
+		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
+		sendMH.generateTransactionID();
+
+		ChangeRequest changeRequest = new ChangeRequest();
+		sendMH.addMessageAttribute(changeRequest);
+
+		byte[] data = sendMH.getBytes();
+
 		while (true) {
 			try {
-				// Test 1 including response
-				if (socketTest1 != null) {
-					socketTest1.close();
-				}
-				socketTest1 = new DatagramSocket(new InetSocketAddress(sourceIaddress, sourcePort));
-				socketTest1.setReuseAddress(true);
-				socketTest1.connect(InetAddress.getByName(stunServer), stunServerPort);
+				// Test 1 including response using unconnected socket so responses from any IP/port can be received
 				socketTest1.setSoTimeout(timeout);
-
-				MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
-				sendMH.generateTransactionID();
-
-				ChangeRequest changeRequest = new ChangeRequest();
-				sendMH.addMessageAttribute(changeRequest);
-
-				byte[] data = sendMH.getBytes();
-				DatagramPacket send = new DatagramPacket(data, data.length);
+				DatagramPacket send = new DatagramPacket(data, data.length, serverAddress, stunServerPort);
 				socketTest1.send(send);
 				LOGGER.debug("Test 1: Binding Request sent.");
 
 				MessageHeader receiveMH = new MessageHeader();
 				while (!(receiveMH.equalTransactionID(sendMH))) {
-					DatagramPacket receive = new DatagramPacket(new byte[200], 200);
+					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
 					socketTest1.receive(receive);
 					receiveMH = MessageHeader.parseHeader(receive.getData());
 					receiveMH.parseAttributes(receive.getData());
@@ -194,61 +199,49 @@ public class DiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
+		InetAddress serverAddress = InetAddress.getByName(stunServer);
+
+		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
+		sendMH.generateTransactionID();
+
+		ChangeRequest changeRequest = new ChangeRequest();
+		changeRequest.setChangeIP();
+		changeRequest.setChangePort();
+		sendMH.addMessageAttribute(changeRequest);
+
+		byte[] data = sendMH.getBytes();
+
 		while (true) {
 			try {
-				// Test 2 including response
-				int localPort;
-				InetAddress localAddress;
-				MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
-				try (DatagramSocket sendSocket = new DatagramSocket(
-						new InetSocketAddress(sourceIaddress, sourcePort))) {
-					sendSocket.connect(InetAddress.getByName(stunServer), stunServerPort);
-					sendSocket.setSoTimeout(timeout);
+				// Reuse the unconnected socketTest1 so there is no close/re-bind race condition
+				socketTest1.setSoTimeout(timeout);
+				DatagramPacket send = new DatagramPacket(data, data.length, serverAddress, stunServerPort);
+				socketTest1.send(send);
+				LOGGER.debug("Test 2: Binding Request sent.");
 
-					sendMH.generateTransactionID();
-
-					ChangeRequest changeRequest = new ChangeRequest();
-					changeRequest.setChangeIP();
-					changeRequest.setChangePort();
-					sendMH.addMessageAttribute(changeRequest);
-
-					byte[] data = sendMH.getBytes();
-					DatagramPacket send = new DatagramPacket(data, data.length);
-					sendSocket.send(send);
-					LOGGER.debug("Test 2: Binding Request sent.");
-
-					localPort = sendSocket.getLocalPort();
-					localAddress = sendSocket.getLocalAddress();
+				MessageHeader receiveMH = new MessageHeader();
+				while (!(receiveMH.equalTransactionID(sendMH))) {
+					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
+					socketTest1.receive(receive);
+					receiveMH = MessageHeader.parseHeader(receive.getData());
+					receiveMH.parseAttributes(receive.getData());
 				}
-
-				try (DatagramSocket receiveSocket = new DatagramSocket(localPort, localAddress)) {
-					receiveSocket.connect(ca.getAddress().getInetAddress(), ca.getPort());
-					receiveSocket.setSoTimeout(timeout);
-
-					MessageHeader receiveMH = new MessageHeader();
-					while (!(receiveMH.equalTransactionID(sendMH))) {
-						DatagramPacket receive = new DatagramPacket(new byte[200], 200);
-						receiveSocket.receive(receive);
-						receiveMH = MessageHeader.parseHeader(receive.getData());
-						receiveMH.parseAttributes(receive.getData());
-					}
-					ErrorCode ec = (ErrorCode) receiveMH
-							.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
-					if (ec != null) {
-						di.setError(ec.getResponseCode(), ec.getReason());
-						LOGGER.debug("Message header contains an Errorcode message attribute.");
-						return false;
-					}
-					if (!nodeNatted) {
-						di.setOpenAccess();
-						LOGGER.debug(
-								"Node has open access to the Internet (or, at least the node is behind a full-cone NAT without translation).");
-					} else {
-						di.setFullCone();
-						LOGGER.debug("Node is behind a full-cone NAT.");
-					}
+				ErrorCode ec = (ErrorCode) receiveMH
+						.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
+				if (ec != null) {
+					di.setError(ec.getResponseCode(), ec.getReason());
+					LOGGER.debug("Message header contains an Errorcode message attribute.");
 					return false;
 				}
+				if (!nodeNatted) {
+					di.setOpenAccess();
+					LOGGER.debug(
+							"Node has open access to the Internet (or, at least the node is behind a full-cone NAT without translation).");
+				} else {
+					di.setFullCone();
+					LOGGER.debug("Node is behind a full-cone NAT.");
+				}
+				return false;
 			} catch (SocketTimeoutException ste) {
 				if (timeSinceFirstTransmission < 7900) {
 					LOGGER.debug("Test 2: Socket timeout while receiving the response.");
@@ -265,7 +258,7 @@ public class DiscoveryTest {
 						LOGGER.debug("Node is behind a symmetric UDP firewall.");
 						return false;
 					} else {
-						// not is natted
+						// node is natted
 						// redo test 1 with address and port as offered in the changed-address message
 						// attribute
 						return true;
@@ -279,28 +272,30 @@ public class DiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
+		InetAddress changedServerAddress = ca.getAddress().getInetAddress();
+		int changedServerPort = ca.getPort();
+
+		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
+		sendMH.generateTransactionID();
+
+		ChangeRequest changeRequest = new ChangeRequest();
+		sendMH.addMessageAttribute(changeRequest);
+
+		byte[] data = sendMH.getBytes();
+
 		while (true) {
 			// redo test 1 with address and port as offered in the changed-address message
 			// attribute
 			try {
-				// Test 1 with changed port and address values
-				socketTest1.connect(ca.getAddress().getInetAddress(), ca.getPort());
+				// Test 1 with changed port and address values on unconnected socketTest1
 				socketTest1.setSoTimeout(timeout);
-
-				MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
-				sendMH.generateTransactionID();
-
-				ChangeRequest changeRequest = new ChangeRequest();
-				sendMH.addMessageAttribute(changeRequest);
-
-				byte[] data = sendMH.getBytes();
-				DatagramPacket send = new DatagramPacket(data, data.length);
+				DatagramPacket send = new DatagramPacket(data, data.length, changedServerAddress, changedServerPort);
 				socketTest1.send(send);
 				LOGGER.debug("Test 1 redo with changed address: Binding Request sent.");
 
 				MessageHeader receiveMH = new MessageHeader();
 				while (!(receiveMH.equalTransactionID(sendMH))) {
-					DatagramPacket receive = new DatagramPacket(new byte[200], 200);
+					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
 					socketTest1.receive(receive);
 					receiveMH = MessageHeader.parseHeader(receive.getData());
 					receiveMH.parseAttributes(receive.getData());
@@ -348,55 +343,43 @@ public class DiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
+		InetAddress serverAddress = InetAddress.getByName(stunServer);
+
+		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
+		sendMH.generateTransactionID();
+
+		ChangeRequest changeRequest = new ChangeRequest();
+		changeRequest.setChangePort();
+		sendMH.addMessageAttribute(changeRequest);
+
+		byte[] data = sendMH.getBytes();
+
 		while (true) {
 			try {
-				// Test 3 including response
-				int localPort;
-				InetAddress localAddress;
-				MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
-				try (DatagramSocket sendSocket = new DatagramSocket(
-						new InetSocketAddress(sourceIaddress, sourcePort))) {
-					sendSocket.connect(InetAddress.getByName(stunServer), stunServerPort);
-					sendSocket.setSoTimeout(timeout);
+				// Test 3 including response on unconnected socketTest1
+				socketTest1.setSoTimeout(timeout);
+				DatagramPacket send = new DatagramPacket(data, data.length, serverAddress, stunServerPort);
+				socketTest1.send(send);
+				LOGGER.debug("Test 3: Binding Request sent.");
 
-					sendMH.generateTransactionID();
-
-					ChangeRequest changeRequest = new ChangeRequest();
-					changeRequest.setChangePort();
-					sendMH.addMessageAttribute(changeRequest);
-
-					byte[] data = sendMH.getBytes();
-					DatagramPacket send = new DatagramPacket(data, data.length);
-					sendSocket.send(send);
-					LOGGER.debug("Test 3: Binding Request sent.");
-
-					localPort = sendSocket.getLocalPort();
-					localAddress = sendSocket.getLocalAddress();
+				MessageHeader receiveMH = new MessageHeader();
+				while (!(receiveMH.equalTransactionID(sendMH))) {
+					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
+					socketTest1.receive(receive);
+					receiveMH = MessageHeader.parseHeader(receive.getData());
+					receiveMH.parseAttributes(receive.getData());
 				}
-
-				try (DatagramSocket receiveSocket = new DatagramSocket(localPort, localAddress)) {
-					receiveSocket.connect(InetAddress.getByName(stunServer), ca.getPort());
-					receiveSocket.setSoTimeout(timeout);
-
-					MessageHeader receiveMH = new MessageHeader();
-					while (!(receiveMH.equalTransactionID(sendMH))) {
-						DatagramPacket receive = new DatagramPacket(new byte[200], 200);
-						receiveSocket.receive(receive);
-						receiveMH = MessageHeader.parseHeader(receive.getData());
-						receiveMH.parseAttributes(receive.getData());
-					}
-					ErrorCode ec = (ErrorCode) receiveMH
-							.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
-					if (ec != null) {
-						di.setError(ec.getResponseCode(), ec.getReason());
-						LOGGER.debug("Message header contains an Errorcode message attribute.");
-						return;
-					}
-					if (nodeNatted) {
-						di.setRestrictedCone();
-						LOGGER.debug("Node is behind a restricted NAT.");
-						return;
-					}
+				ErrorCode ec = (ErrorCode) receiveMH
+						.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
+				if (ec != null) {
+					di.setError(ec.getResponseCode(), ec.getReason());
+					LOGGER.debug("Message header contains an Errorcode message attribute.");
+					return;
+				}
+				if (nodeNatted) {
+					di.setRestrictedCone();
+					LOGGER.debug("Node is behind a restricted NAT.");
+					return;
 				}
 			} catch (SocketTimeoutException ste) {
 				if (timeSinceFirstTransmission < 7900) {
