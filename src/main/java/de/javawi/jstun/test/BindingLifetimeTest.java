@@ -31,6 +31,7 @@ import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
 import de.javawi.jstun.attribute.ResponseAddress;
+import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.header.MessageHeader;
 import de.javawi.jstun.header.MessageHeaderParsingException;
 import de.javawi.jstun.util.UtilityException;
@@ -75,7 +76,8 @@ public class BindingLifetimeTest {
 	}
 
 	private boolean bindingCommunicationInitialSocket()
-			throws UtilityException, IOException, MessageHeaderParsingException, MessageAttributeParsingException {
+			throws UtilityException, IOException, MessageHeaderParsingException, MessageAttributeParsingException,
+			MessageAttributeException {
 		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
 		sendMH.generateTransactionID();
 		ChangeRequest changeRequest = new ChangeRequest();
@@ -94,6 +96,15 @@ public class BindingLifetimeTest {
 			receiveMH.parseAttributes(receive.getData());
 		}
 		ma = (MappedAddress) receiveMH.getMessageAttribute(MessageAttribute.MessageAttributeType.MappedAddress);
+		if (ma == null) {
+			XorMappedAddress xma = (XorMappedAddress) receiveMH
+					.getMessageAttribute(MessageAttribute.MessageAttributeType.XorMappedAddress);
+			if (xma != null) {
+				ma = new MappedAddress();
+				ma.setAddress(xma.getAddress());
+				ma.setPort(xma.getPort());
+			}
+		}
 		ErrorCode ec = (ErrorCode) receiveMH.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
 		if (ec != null) {
 			LOGGER.debug("Message header contains an Errorcode message attribute.");
@@ -117,6 +128,19 @@ public class BindingLifetimeTest {
 	public void setUpperBinarySearchLifetime(int upperBinarySearchLifetime) {
 		this.upperBinarySearchLifetime = upperBinarySearchLifetime;
 		binarySearchLifetime = (upperBinarySearchLifetime + lowerBinarySearchLifetime) / 2;
+	}
+
+	public void setTimeout(int timeout) {
+		this.timeout = timeout;
+	}
+
+	public void close() {
+		if (timer != null) {
+			timer.cancel();
+		}
+		if (initialSocket != null && !initialSocket.isClosed()) {
+			initialSocket.close();
+		}
 	}
 
 	class BindingLifetimeTask extends TimerTask {

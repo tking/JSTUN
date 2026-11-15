@@ -16,7 +16,10 @@ import org.junit.platform.suite.api.Suite;
 
 import de.javawi.jstun.attribute.MappedAddressTest;
 import de.javawi.jstun.attribute.Rfc5769TestVectorsTest;
+import de.javawi.jstun.attribute.StunAttributesAndUtilityTest;
 import de.javawi.jstun.header.MessageHeaderTest;
+import de.javawi.jstun.test.BindingLifetimeAndStunServerTest;
+import de.javawi.jstun.test.Rfc3489DiscoveryAlgorithmTest;
 import de.javawi.jstun.test.Rfc5780AttributesAndDiscoveryTest;
 import de.javawi.jstun.test.demo.ice.ICENegotiatorTest;
 import de.javawi.jstun.util.AddressTest;
@@ -27,7 +30,10 @@ import de.javawi.jstun.util.AddressTest;
 	MappedAddressTest.class,
 	MessageHeaderTest.class,
 	Rfc5769TestVectorsTest.class,
+	StunAttributesAndUtilityTest.class,
+	Rfc3489DiscoveryAlgorithmTest.class,
 	Rfc5780AttributesAndDiscoveryTest.class,
+	BindingLifetimeAndStunServerTest.class,
 	ICENegotiatorTest.class
 })
 public class AllTests {

@@ -107,23 +107,10 @@ public class MappedAddressTest {
 			assertTrue(result[0] == 0);
 			assertTrue(result[1] == 1);
 			assertTrue(result[2] == 0);
-			assertTrue(result[3] == 8);
-			assertTrue(result[4] == dataV6[0]);
-			assertTrue(result[5] == dataV6[1]);
-			assertTrue(result[6] == dataV6[2]);
-			assertTrue(result[7] == dataV6[3]);
-			assertTrue(result[8] == dataV6[4]);
-			assertTrue(result[9] == dataV6[5]);
-			assertTrue(result[10] == dataV6[6]);
-			assertTrue(result[11] == dataV6[7]);
-			assertTrue(result[12] == dataV6[8]);
-			assertTrue(result[13] == dataV6[9]);
-			assertTrue(result[14] == dataV6[10]);
-			assertTrue(result[15] == dataV6[11]);
-			assertTrue(result[16] == dataV6[12]);
-			assertTrue(result[17] == dataV6[13]);
-			assertTrue(result[18] == dataV6[14]);
-			assertTrue(result[19] == dataV6[15]);
+			assertTrue(result[3] == 20);
+			for (int i = 0; i < dataV6.length; i++) {
+				assertTrue(result[4 + i] == dataV6[i]);
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -175,8 +162,9 @@ public class MappedAddressTest {
 	 * setPort(int)'
 	 */
 	@Test
-	public void testSetPort() {
-
+	public void testSetPort() throws Exception {
+		maV4.setPort(12345);
+		assertTrue(maV4.getPort() == 12345);
 	}
 
 	/*
@@ -185,8 +173,10 @@ public class MappedAddressTest {
 	 * setAddress(Address)'
 	 */
 	@Test
-	public void testSetAddress() {
-
+	public void testSetAddress() throws Exception {
+		de.javawi.jstun.util.Address addr = new de.javawi.jstun.util.Address("198.51.100.7");
+		maV4.setAddress(addr);
+		assertTrue(maV4.getAddress().equals(addr));
 	}
 
 	/*
@@ -196,7 +186,8 @@ public class MappedAddressTest {
 	 */
 	@Test
 	public void testToString() {
-
+		assertTrue(maV4.toString().contains("84.56.233.76"));
+		assertTrue(maV4.toString().contains("63584"));
 	}
 
 }

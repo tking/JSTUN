@@ -36,6 +36,10 @@ public class UnknownAttribute extends MessageAttribute {
 	public void addAttribute(MessageAttributeType attribute) {
 		unkown.add(attribute);
 	}
+
+	public Vector<MessageAttributeType> getAttributes() {
+		return unkown;
+	}
 	
 	public byte[] getBytes() throws UtilityException {
 		int length = 0;
@@ -52,14 +56,16 @@ public class UnknownAttribute extends MessageAttribute {
 		System.arraycopy(Utility.integerToTwoBytes(length - 4), 0, result, 2, 2);
 		
 		// unkown attribute header
+		int offset = 4;
 		Iterator<MessageAttributeType> it = unkown.iterator();
 		while(it.hasNext()) {
 			MessageAttributeType attri = it.next();
-			System.arraycopy(Utility.integerToTwoBytes(typeToInteger(attri)), 0, result, 4, 2);
+			System.arraycopy(Utility.integerToTwoBytes(typeToInteger(attri)), 0, result, offset, 2);
+			offset += 2;
 		}
 		// padding
 		if (unkown.size()%2 == 1) {
-			System.arraycopy(Utility.integerToTwoBytes(typeToInteger(unkown.lastElement())), 0, result, 4, 2);
+			System.arraycopy(Utility.integerToTwoBytes(typeToInteger(unkown.lastElement())), 0, result, offset, 2);
 		}
 		return result;
 	}
@@ -68,10 +74,10 @@ public class UnknownAttribute extends MessageAttribute {
 		try {
 			UnknownAttribute result = new UnknownAttribute();
 			if (data.length % 4 != 0) throw new MessageAttributeParsingException("Data array too short");
-			for (int i = 0; i < data.length; i += 4) {
-				byte[] temp = new byte[4];
-				System.arraycopy(data, i, temp, 0, 4);
-				long attri = Utility.fourBytesToLong(temp);
+			for (int i = 0; i < data.length; i += 2) {
+				byte[] temp = new byte[2];
+				System.arraycopy(data, i, temp, 0, 2);
+				int attri = Utility.twoBytesToInteger(temp);
 				result.addAttribute(MessageAttribute.intToType(attri));
 			}
 			return result;

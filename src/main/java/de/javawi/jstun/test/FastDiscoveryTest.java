@@ -43,6 +43,7 @@ public class FastDiscoveryTest {
 	String stunServer;
 	int stunServerPort;
 	int timeoutInitValue = 300; // ms
+	int maxWaitTimeMs = 300; // ms
 	MappedAddress ma = null;
 	ChangedAddress ca = null;
 	boolean nodeNatted = true;
@@ -63,6 +64,14 @@ public class FastDiscoveryTest {
 		this.sourcePort = sourcePort;
 		this.stunServer = stunServer;
 		this.stunServerPort = stunServerPort;
+	}
+
+	public void setTimeoutInitValue(int timeoutInitValue) {
+		this.timeoutInitValue = timeoutInitValue;
+	}
+
+	public void setMaxWaitTimeMs(int maxWaitTimeMs) {
+		this.maxWaitTimeMs = maxWaitTimeMs;
 	}
 
 	public DiscoveryInfo test() throws UtilityException, SocketException, UnknownHostException, IOException,
@@ -88,7 +97,7 @@ public class FastDiscoveryTest {
 
 			while (t1t.isAlive() || t2t.isAlive()) {
 				try {
-					Thread.sleep(100);
+					Thread.sleep(Math.min(100, Math.max(10, timeoutInitValue)));
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt();
 				}
@@ -243,7 +252,7 @@ public class FastDiscoveryTest {
 					return true;
 				}
 			} catch (SocketTimeoutException ste) {
-				if (timeSinceFirstTransmission < 300) {
+				if (timeSinceFirstTransmission < maxWaitTimeMs) {
 					LOGGER.debug("Test 1: Socket timeout while receiving the response.");
 					timeSinceFirstTransmission += timeout;
 				} else {
@@ -300,7 +309,7 @@ public class FastDiscoveryTest {
 					}
 					return CONNECTION_ESTABLISHED_NO_ERROR;
 				} catch (SocketTimeoutException ste) {
-					if (timeSinceFirstTransmission < 300) {
+					if (timeSinceFirstTransmission < maxWaitTimeMs) {
 						LOGGER.debug("Test 2: Socket timeout while receiving the response.");
 						timeSinceFirstTransmission += timeout;
 					} else {
@@ -368,7 +377,7 @@ public class FastDiscoveryTest {
 				}
 				return true;
 			} catch (SocketTimeoutException ste2) {
-				if (timeSinceFirstTransmission < 300) {
+				if (timeSinceFirstTransmission < maxWaitTimeMs) {
 					LOGGER.debug("Test 1 redo with changed address: Socket timeout while receiving the response.");
 					timeSinceFirstTransmission += timeout;
 				} else {
@@ -421,7 +430,7 @@ public class FastDiscoveryTest {
 					}
 					return CONNECTION_ESTABLISHED_NO_ERROR;
 				} catch (SocketTimeoutException ste) {
-					if (timeSinceFirstTransmission < 300) {
+					if (timeSinceFirstTransmission < maxWaitTimeMs) {
 						LOGGER.debug("Test 3: Socket timeout while receiving the response.");
 						timeSinceFirstTransmission += timeout;
 					} else {

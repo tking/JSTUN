@@ -53,7 +53,11 @@ public class Nonce extends MessageAttribute {
 
 	public static Nonce parse(byte[] data) {
 		Nonce result = new Nonce();
-		result.setNonce(new String(data, StandardCharsets.UTF_8));
+		int end = data.length;
+		while (end > 0 && data[end - 1] == 0) {
+			end--;
+		}
+		result.setNonce(new String(data, 0, end, StandardCharsets.UTF_8));
 		return result;
 	}
 }

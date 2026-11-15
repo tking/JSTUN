@@ -79,13 +79,16 @@ mvn test
 ```
 
 The test suite (`de.javawi.jstun.AllTests`) includes:
+* **`Rfc3489DiscoveryAlgorithmTest`:** Exercises every branch of the **RFC 3489 Section 10.1** NAT and Firewall discovery decision tree for both `DiscoveryTest` and `FastDiscoveryTest` (Blocked UDP, Open Access, Symmetric UDP Firewall, Full Cone NAT, Symmetric NAT, Restricted Cone NAT, Port Restricted Cone NAT, Server Error, and Error 700 incomplete responses).
+* **`Rfc5780AttributesAndDiscoveryTest`:** Tests **RFC 5780** attribute serialization/parsing (`OtherAddress`, `ResponseOrigin`, `ResponsePort`, `Padding`) and the full `NatBehaviorDiscoveryTest` algorithm across Section 4.3 Mapping Behavior (`DIRECT`, `ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`) and Section 4.4 Filtering Behavior (`ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`).
+* **`BindingLifetimeAndStunServerTest`:** Tests the **RFC 3489 Section 10.2** binary-search UDP binding lifetime discovery algorithm (`BindingLifetimeTest`) and the dual-homed `StunServer` across all `CHANGE-REQUEST`, `RESPONSE-PORT`, `RESPONSE-ADDRESS`, and `UNKNOWN-ATTRIBUTES` (`420`) error modes.
 * **`Rfc5769TestVectorsTest`:** Validates byte-for-byte wire compatibility against the official **RFC 5769** STUN test vectors:
   * Section 2.2 IPv4 Binding Response (`192.0.2.1:32853`, `XOR-MAPPED-ADDRESS`, `SOFTWARE`, `MESSAGE-INTEGRITY`, `FINGERPRINT`)
   * Section 2.3 IPv6 Binding Response (`2001:db8:1234:5678:11:2233:4455:6677:32853`)
-  * 4-byte padding alignment for unaligned comprehension-optional attributes (`>= 0x8000`)
-* **`Rfc5780AttributesAndDiscoveryTest`:** Tests RFC 5780 attribute serialization/parsing (`OtherAddress`, `ResponseOrigin`, `ResponsePort`, `Padding`) and two-dimensional NAT classification in `DiscoveryInfo`.
-* **`MessageHeaderTest`:** Tests STUN header serialization, parsing, Magic Cookie handling, and Transaction IDs.
-* **`MappedAddressTest` & `AddressTest`:** Tests IPv4 and IPv6 address utilities and `MappedAddress` attributes.
+  * 4-byte padding alignment for unaligned comprehension-optional attributes (`>= 0x8000`) and Coturn `ERROR-CODE` responses
+* **`StunAttributesAndUtilityTest`:** Tests short-term and long-term `MessageIntegrity` HMAC-SHA1 (including RFC 5769 Section 2.4 UTF-8 Japanese credentials), `Fingerprint` CRC-32 tamper detection, `UnknownAttribute`, `ErrorCode`, `ChangeRequest`, padded string attributes (`Username`, `Password`, `Realm`, `Nonce`, `Software`), IPv4/IPv6 address attributes, and `Utility`.
+* **`ICENegotiatorTest`:** Tests **ICE** candidate gathering, priority calculation (`Relayed > PeerReflexive > ServerReflexive > Local`), sorting, and candidate socket handling.
+* **`MessageHeaderTest`, `MappedAddressTest`, & `AddressTest`:** Tests STUN header serialization/parsing, Magic Cookie handling, Transaction IDs, and IPv4/IPv6 address utilities.
 
 
 What do you need?

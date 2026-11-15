@@ -67,7 +67,7 @@ public class MappedResponseChangedSourceAddressReflectedFrom extends MessageAttr
 		// type
 		System.arraycopy(Utility.integerToTwoBytes(typeToInteger(type)), 0, result, 0, 2);
 		// length
-		System.arraycopy(Utility.integerToTwoBytes(8), 0, result, 2, 2);
+		System.arraycopy(Utility.integerToTwoBytes(4 + addressInBytes.length), 0, result, 2, 2);
 		
 		// mappedaddress header
 		// family
