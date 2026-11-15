@@ -49,6 +49,12 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 		if (type == MessageAttributeType.ErrorCode) return ERRORCODE;
 		if (type == MessageAttributeType.UnknownAttribute) return UNKNOWNATTRIBUTE;
 		if (type == MessageAttributeType.ReflectedFrom) return REFLECTEDFROM;
+		if (type == MessageAttributeType.Realm) return REALM;
+		if (type == MessageAttributeType.Nonce) return NONCE;
+		if (type == MessageAttributeType.XorMappedAddress) return XORMAPPEDADDRESS;
+		if (type == MessageAttributeType.Software) return SOFTWARE;
+		if (type == MessageAttributeType.AlternateServer) return ALTERNATESERVER;
+		if (type == MessageAttributeType.Fingerprint) return FINGERPRINT;
 		if (type == MessageAttributeType.Dummy) return DUMMY;
 		return -1;
 	}
@@ -65,6 +71,12 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 		if (type == ERRORCODE) return MessageAttributeType.ErrorCode;
 		if (type == UNKNOWNATTRIBUTE) return MessageAttributeType.UnknownAttribute;
 		if (type == REFLECTEDFROM) return MessageAttributeType.ReflectedFrom;
+		if (type == REALM) return MessageAttributeType.Realm;
+		if (type == NONCE) return MessageAttributeType.Nonce;
+		if (type == XORMAPPEDADDRESS || type == XORMAPPEDADDRESS_OPTIONAL) return MessageAttributeType.XorMappedAddress;
+		if (type == SOFTWARE) return MessageAttributeType.Software;
+		if (type == ALTERNATESERVER) return MessageAttributeType.AlternateServer;
+		if (type == FINGERPRINT) return MessageAttributeType.Fingerprint;
 		if (type == DUMMY) return MessageAttributeType.Dummy;
 		return null;
 	}
@@ -78,6 +90,10 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 	}
 	
 	public static MessageAttribute parseCommonHeader(byte[] data) throws MessageAttributeParsingException {
+		return parseCommonHeader(data, null);
+	}
+
+	public static MessageAttribute parseCommonHeader(byte[] data, byte[] transactionId) throws MessageAttributeParsingException {
 		try {			
 			byte[] typeArray = new byte[2];
 			System.arraycopy(data, 0, typeArray, 0, 2);
@@ -100,6 +116,15 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 			case ERRORCODE: ma = ErrorCode.parse(valueArray); break;
 			case UNKNOWNATTRIBUTE: ma = UnknownAttribute.parse(valueArray); break;
 			case REFLECTEDFROM: ma = ReflectedFrom.parse(valueArray); break;
+			case REALM: ma = Realm.parse(valueArray); break;
+			case NONCE: ma = Nonce.parse(valueArray); break;
+			case XORMAPPEDADDRESS:
+			case XORMAPPEDADDRESS_OPTIONAL:
+				ma = XorMappedAddress.parse(valueArray, transactionId);
+				break;
+			case SOFTWARE: ma = Software.parse(valueArray); break;
+			case ALTERNATESERVER: ma = AlternateServer.parse(valueArray); break;
+			case FINGERPRINT: ma = Fingerprint.parse(valueArray); break;
 			default:
 				if (type <= 0x7fff) {
 					throw new UnknownMessageAttributeException("Unkown mandatory message attribute", intToType(type));

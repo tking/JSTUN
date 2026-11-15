@@ -13,6 +13,7 @@ package de.javawi.jstun.header;
 
 public interface MessageHeaderInterface {
 	public enum MessageHeaderType { BindingRequest, BindingResponse, BindingErrorResponse, SharedSecretRequest, SharedSecretResponse, SharedSecretErrorResponse };
+	final static int MAGIC_COOKIE = 0x2112A442;
 	final static int BINDINGREQUEST = 0x0001;
 	final static int BINDINGRESPONSE = 0x0101;
 	final static int BINDINGERRORRESPONSE = 0x0111;

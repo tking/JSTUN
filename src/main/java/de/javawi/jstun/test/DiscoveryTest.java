@@ -30,6 +30,7 @@ import de.javawi.jstun.attribute.MappedAddress;
 import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
+import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.header.MessageHeader;
 import de.javawi.jstun.header.MessageHeaderParsingException;
 import de.javawi.jstun.util.UtilityException;
@@ -62,26 +63,45 @@ public class DiscoveryTest {
 		socketTest1 = null;
 		di = new DiscoveryInfo(sourceIaddress);
 
-		if (test1()) {
-			if (test2()) {
-				if (test1Redo()) {
-					test3();
+		try {
+			if (test1()) {
+				if (test2()) {
+					if (test1Redo()) {
+						test3();
+					}
 				}
 			}
+		} finally {
+			if (socketTest1 != null) {
+				socketTest1.close();
+			}
 		}
-
-		socketTest1.close();
 
 		return di;
 	}
 
+	private MappedAddress extractMappedAddress(MessageHeader receiveMH) throws MessageAttributeException {
+		XorMappedAddress xma = (XorMappedAddress) receiveMH
+				.getMessageAttribute(MessageAttribute.MessageAttributeType.XorMappedAddress);
+		if (xma != null) {
+			MappedAddress converted = new MappedAddress();
+			converted.setAddress(xma.getAddress());
+			converted.setPort(xma.getPort());
+			return converted;
+		}
+		return (MappedAddress) receiveMH.getMessageAttribute(MessageAttribute.MessageAttributeType.MappedAddress);
+	}
+
 	private boolean test1() throws UtilityException, SocketException, UnknownHostException, IOException,
-			MessageAttributeParsingException, MessageHeaderParsingException {
+			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
 		while (true) {
 			try {
 				// Test 1 including response
+				if (socketTest1 != null) {
+					socketTest1.close();
+				}
 				socketTest1 = new DatagramSocket(new InetSocketAddress(sourceIaddress, sourcePort));
 				socketTest1.setReuseAddress(true);
 				socketTest1.connect(InetAddress.getByName(stunServer), stunServerPort);
@@ -106,7 +126,7 @@ public class DiscoveryTest {
 					receiveMH.parseAttributes(receive.getData());
 				}
 
-				ma = (MappedAddress) receiveMH.getMessageAttribute(MessageAttribute.MessageAttributeType.MappedAddress);
+				ma = extractMappedAddress(receiveMH);
 				ca = (ChangedAddress) receiveMH
 						.getMessageAttribute(MessageAttribute.MessageAttributeType.ChangedAddress);
 				ErrorCode ec = (ErrorCode) receiveMH
@@ -239,7 +259,7 @@ public class DiscoveryTest {
 	}
 
 	private boolean test1Redo() throws UtilityException, SocketException, UnknownHostException, IOException,
-			MessageAttributeParsingException, MessageHeaderParsingException {
+			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
 		while (true) {
@@ -268,8 +288,7 @@ public class DiscoveryTest {
 					receiveMH = MessageHeader.parseHeader(receive.getData());
 					receiveMH.parseAttributes(receive.getData());
 				}
-				MappedAddress ma2 = (MappedAddress) receiveMH
-						.getMessageAttribute(MessageAttribute.MessageAttributeType.MappedAddress);
+				MappedAddress ma2 = extractMappedAddress(receiveMH);
 				ErrorCode ec = (ErrorCode) receiveMH
 						.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
 				if (ec != null) {
