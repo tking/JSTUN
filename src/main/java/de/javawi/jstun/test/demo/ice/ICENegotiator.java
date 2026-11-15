@@ -44,7 +44,7 @@ public class ICENegotiator {
 	
 	// component id
 	private short componentId;
-	private String stunServer = "jstun.javawi.de";
+	private String stunServer = "jstun.t-king.de";
 	private int stunPort = 3478;
 	
 	// candidates

@@ -58,7 +58,7 @@ java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
 You can also use `DiscoveryTest`, `FastDiscoveryTest`, `NatBehaviorDiscoveryTest` (for RFC 5780 Mapping & Filtering behavior), or `BindingLifetimeTest` programmatically:
 ```java
 NatBehaviorDiscoveryTest test = new NatBehaviorDiscoveryTest(
-    InetAddress.getByName("0.0.0.0"), "jstun.javawi.de", 3478);
+    InetAddress.getByName("0.0.0.0"), "jstun.t-king.de", 3478);
 DiscoveryInfo info = test.test();
 System.out.println(info);
 ```

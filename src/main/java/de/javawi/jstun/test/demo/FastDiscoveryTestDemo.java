@@ -39,7 +39,7 @@ public class FastDiscoveryTestDemo implements Runnable {
 	
 	public void run() {
 		try {
-			FastDiscoveryTest test = new FastDiscoveryTest(iaddress, port, "jstun.javawi.de", 3478);
+			FastDiscoveryTest test = new FastDiscoveryTest(iaddress, port, "jstun.t-king.de", 3478);
 			//DiscoveryTest test = new DiscoveryTest(iaddress, "stun.sipgate.net", 10000);
 			// iphone-stun.freenet.de:3478
 			// larry.gloo.net:3478

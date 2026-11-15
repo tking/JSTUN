@@ -25,7 +25,7 @@ public class BindingLifetimeTestDemo {
 			fh.setFormatter(new SimpleFormatter());
 			java.util.logging.Logger.getLogger("de.javawi.stun").addHandler(fh);
 			java.util.logging.Logger.getLogger("de.javawi.stun").setLevel(Level.ALL);
-			BindingLifetimeTest test = new BindingLifetimeTest("jstun.javawi.de", 3478);
+			BindingLifetimeTest test = new BindingLifetimeTest("jstun.t-king.de", 3478);
 			// iphone-stun.freenet.de:3478
 			// larry.gloo.net:3478
 			// stun.xten.net:3478
