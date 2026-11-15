@@ -11,9 +11,26 @@
 
 package de.javawi.jstun.test;
 
-import java.net.*;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 
 public class DiscoveryInfo {
+	public enum MappingBehavior {
+		UNKNOWN,
+		DIRECT,
+		ENDPOINT_INDEPENDENT,
+		ADDRESS_DEPENDENT,
+		ADDRESS_AND_PORT_DEPENDENT
+	}
+
+	public enum FilteringBehavior {
+		UNKNOWN,
+		ENDPOINT_INDEPENDENT,
+		ADDRESS_DEPENDENT,
+		ADDRESS_AND_PORT_DEPENDENT
+	}
+
 	private InetAddress testIP;
 	private boolean error = false;
 	private int errorResponseCode = 0;
@@ -27,6 +44,8 @@ public class DiscoveryInfo {
 	private boolean symmetricUDPFirewall = false;
 	private InetAddress publicIP;
 	private int publicPort = -1;
+	private MappingBehavior mappingBehavior = MappingBehavior.UNKNOWN;
+	private FilteringBehavior filteringBehavior = FilteringBehavior.UNKNOWN;
 	
 	public DiscoveryInfo(InetAddress testIP) {
 		this.testIP = testIP;
@@ -124,12 +143,31 @@ public class DiscoveryInfo {
 	public void setPublicPort(int publicPort) {
 		this.publicPort = publicPort;
 	}
+
+	public MappingBehavior getMappingBehavior() {
+		if (error) return MappingBehavior.UNKNOWN;
+		return mappingBehavior;
+	}
+
+	public void setMappingBehavior(MappingBehavior mappingBehavior) {
+		this.mappingBehavior = (mappingBehavior != null) ? mappingBehavior : MappingBehavior.UNKNOWN;
+	}
+
+	public FilteringBehavior getFilteringBehavior() {
+		if (error) return FilteringBehavior.UNKNOWN;
+		return filteringBehavior;
+	}
+
+	public void setFilteringBehavior(FilteringBehavior filteringBehavior) {
+		this.filteringBehavior = (filteringBehavior != null) ? filteringBehavior : FilteringBehavior.UNKNOWN;
+	}
 	
 	public String toString() {
 		StringBuffer sb = new StringBuffer();
 		sb.append("Network interface: ");
 		try {
-			sb.append(NetworkInterface.getByInetAddress(testIP).getName());
+			NetworkInterface ni = NetworkInterface.getByInetAddress(testIP);
+			sb.append(ni != null ? ni.getName() : "unknown");
 		} catch (SocketException se) {
 			sb.append("unknown");
 		}
@@ -150,6 +188,12 @@ public class DiscoveryInfo {
 		if (symmetric) sb.append("Symmetric Cone NAT handles connections.\n");
 		if (symmetricUDPFirewall) sb.append ("Symmetric UDP Firewall handles connections.\n");
 		if (!openAccess && !blockedUDP && !fullCone && !restrictedCone && !portRestrictedCone && !symmetric && !symmetricUDPFirewall) sb.append("unkown\n");
+		if (mappingBehavior != MappingBehavior.UNKNOWN) {
+			sb.append("RFC 5780 Mapping Behavior: ").append(mappingBehavior.name()).append("\n");
+		}
+		if (filteringBehavior != FilteringBehavior.UNKNOWN) {
+			sb.append("RFC 5780 Filtering Behavior: ").append(filteringBehavior.name()).append("\n");
+		}
 		sb.append("Public IP address: ");
 		if (publicIP != null) {
 			sb.append(publicIP.getHostAddress());

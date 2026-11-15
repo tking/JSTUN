@@ -30,6 +30,7 @@ import de.javawi.jstun.attribute.MappedAddress;
 import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
+import de.javawi.jstun.attribute.OtherAddress;
 import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.header.MessageHeader;
 import de.javawi.jstun.header.MessageHeaderParsingException;
@@ -92,6 +93,23 @@ public class DiscoveryTest {
 		return (MappedAddress) receiveMH.getMessageAttribute(MessageAttribute.MessageAttributeType.MappedAddress);
 	}
 
+	private ChangedAddress extractChangedAddress(MessageHeader receiveMH) throws MessageAttributeException {
+		ChangedAddress changed = (ChangedAddress) receiveMH
+				.getMessageAttribute(MessageAttribute.MessageAttributeType.ChangedAddress);
+		if (changed != null) {
+			return changed;
+		}
+		OtherAddress oa = (OtherAddress) receiveMH
+				.getMessageAttribute(MessageAttribute.MessageAttributeType.OtherAddress);
+		if (oa != null) {
+			ChangedAddress converted = new ChangedAddress();
+			converted.setAddress(oa.getAddress());
+			converted.setPort(oa.getPort());
+			return converted;
+		}
+		return null;
+	}
+
 	private boolean test1() throws UtilityException, SocketException, UnknownHostException, IOException,
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
@@ -127,8 +145,7 @@ public class DiscoveryTest {
 				}
 
 				ma = extractMappedAddress(receiveMH);
-				ca = (ChangedAddress) receiveMH
-						.getMessageAttribute(MessageAttribute.MessageAttributeType.ChangedAddress);
+				ca = extractChangedAddress(receiveMH);
 				ErrorCode ec = (ErrorCode) receiveMH
 						.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
 				if (ec != null) {
