@@ -13,10 +13,14 @@ package de.javawi.jstun.attribute;
 
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class Software extends MessageAttribute {
+	private static final Logger LOGGER = LoggerFactory.getLogger(Software.class);
 	private String software = "";
 
 	public Software() {
@@ -58,6 +62,7 @@ public class Software extends MessageAttribute {
 			end--;
 		}
 		result.setSoftware(new String(data, 0, end, StandardCharsets.UTF_8));
+		LOGGER.debug("Message Attribute: Software parsed: {}.", result.getSoftware());
 		return result;
 	}
 }

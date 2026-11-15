@@ -13,10 +13,14 @@ package de.javawi.jstun.attribute;
 
 import java.util.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class UnknownAttribute extends MessageAttribute {
+	private static final Logger LOGGER = LoggerFactory.getLogger(UnknownAttribute.class);
 	/* 
 	 *  0                   1                   2                   3
 	 *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -80,6 +84,7 @@ public class UnknownAttribute extends MessageAttribute {
 				int attri = Utility.twoBytesToInteger(temp);
 				result.addAttribute(MessageAttribute.intToType(attri));
 			}
+			LOGGER.debug("Message Attribute: Unknown Attribute parsed: attributes={}.", result.getAttributes());
 			return result;
 		} catch (UtilityException ue) {
 			throw new MessageAttributeParsingException("Parsing error");

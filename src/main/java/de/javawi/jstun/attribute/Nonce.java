@@ -13,10 +13,14 @@ package de.javawi.jstun.attribute;
 
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class Nonce extends MessageAttribute {
+	private static final Logger LOGGER = LoggerFactory.getLogger(Nonce.class);
 	private String nonce = "";
 
 	public Nonce() {
@@ -58,6 +62,7 @@ public class Nonce extends MessageAttribute {
 			end--;
 		}
 		result.setNonce(new String(data, 0, end, StandardCharsets.UTF_8));
+		LOGGER.debug("Message Attribute: Nonce parsed: {}.", result.getNonce());
 		return result;
 	}
 }

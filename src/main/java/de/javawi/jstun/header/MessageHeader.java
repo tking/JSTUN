@@ -165,6 +165,7 @@ public class MessageHeader implements MessageHeaderInterface {
 			System.arraycopy(data, 2, lengthArray, 0, 2);
 			int length = Utility.twoBytesToInteger(lengthArray);
 			System.arraycopy(data, 4, id, 0, 16);
+			LOGGER.debug("Parsing message attributes (payload length: {} bytes, magic cookie: {}).", length, hasMagicCookie());
 			byte[] cuttedData;
 			int offset = 20;
 			while (length > 0) {
