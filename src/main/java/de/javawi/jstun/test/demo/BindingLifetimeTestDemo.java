@@ -23,8 +23,8 @@ public class BindingLifetimeTestDemo {
 		try {
 			Handler fh = new FileHandler("logging.txt");
 			fh.setFormatter(new SimpleFormatter());
-			java.util.logging.Logger.getLogger("de.javawi.stun").addHandler(fh);
-			java.util.logging.Logger.getLogger("de.javawi.stun").setLevel(Level.ALL);
+			java.util.logging.Logger.getLogger("de.javawi.jstun").addHandler(fh);
+			java.util.logging.Logger.getLogger("de.javawi.jstun").setLevel(Level.ALL);
 			BindingLifetimeTest test = new BindingLifetimeTest("jstun.t-king.de", 3478);
 			// iphone-stun.freenet.de:3478
 			// larry.gloo.net:3478
