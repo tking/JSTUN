@@ -11,6 +11,8 @@
 
 package de.javawi.jstun.attribute;
 
+import java.nio.charset.StandardCharsets;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
@@ -34,6 +36,7 @@ public class ErrorCode extends MessageAttribute {
 	
 	public void setResponseCode(int responseCode) throws MessageAttributeException {
 		switch (responseCode) {
+		case 300: reason = "Try Alternate"; break;
 		case 400: reason = "Bad Request"; break;
 		case 401: reason = "Unauthorized"; break;
 		case 420: reason = "Unkown Attribute"; break;
@@ -41,9 +44,15 @@ public class ErrorCode extends MessageAttribute {
 		case 431: reason = "Integrity Check Failure"; break;
 		case 432: reason = "Missing Username"; break;
 		case 433: reason = "Use TLS"; break;
+		case 438: reason = "Stale Nonce"; break;
 		case 500: reason = "Server Error"; break;
 		case 600: reason = "Global Failure"; break;
-		default: throw new MessageAttributeException("Response Code is not valid");
+		default:
+			if (responseCode < 100 || responseCode > 699) {
+				throw new MessageAttributeException("Response Code is not valid");
+			}
+			reason = "Error " + responseCode;
+			break;
 		}
 		this.responseCode = responseCode;
 	}
@@ -56,8 +65,13 @@ public class ErrorCode extends MessageAttribute {
 		return reason;
 	}
 
+	public void setReason(String reason) {
+		this.reason = (reason != null) ? reason : "";
+	}
+
 	public byte[] getBytes() throws UtilityException {
-		int length = reason.length();
+		byte[] reasonArray = (reason != null ? reason : "").getBytes(StandardCharsets.UTF_8);
+		int length = reasonArray.length;
 		// length adjustment
 		if ((length % 4) != 0) {
 			length += 4 - (length % 4);
@@ -69,13 +83,12 @@ public class ErrorCode extends MessageAttribute {
 		// type
 		System.arraycopy(Utility.integerToTwoBytes(typeToInteger(type)), 0, result, 0, 2);
 		// length
-		System.arraycopy(Utility.integerToTwoBytes(length-4), 0, result, 2, 2);
+		System.arraycopy(Utility.integerToTwoBytes(length - 4), 0, result, 2, 2);
 		
 		// error code header
-		int classHeader = (int) Math.floor(((double)responseCode)/100);
+		int classHeader = (int) Math.floor(((double) responseCode) / 100);
 		result[6] = Utility.integerToOneByte(classHeader);
-		result[7] = Utility.integerToOneByte(responseCode%100);
-		byte[] reasonArray = reason.getBytes();
+		result[7] = Utility.integerToOneByte(responseCode % 100);
 		System.arraycopy(reasonArray, 0, result, 8, reasonArray.length);		
 		return result;
 	}
@@ -94,6 +107,15 @@ public class ErrorCode extends MessageAttribute {
 			int responseCode = (classHeader * 100) + number;
 			ErrorCode result = new ErrorCode();
 			result.setResponseCode(responseCode);
+			if (data.length > 4) {
+				int reasonEnd = data.length;
+				while (reasonEnd > 4 && data[reasonEnd - 1] == 0) {
+					reasonEnd--;
+				}
+				if (reasonEnd > 4) {
+					result.setReason(new String(data, 4, reasonEnd - 4, StandardCharsets.UTF_8));
+				}
+			}
 			return result;
 		} catch (UtilityException ue) {
 			throw new MessageAttributeParsingException("Parsing error");
