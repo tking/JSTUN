@@ -52,6 +52,10 @@ public class NatBehaviorDiscoveryTest {
 	private int timeoutInitValue = 300;
 	private int maxWaitTimeMs = 2400;
 
+	public NatBehaviorDiscoveryTest(InetAddress sourceIaddress, String stunServer, int stunServerPort) {
+		this(sourceIaddress, 0, stunServer, stunServerPort);
+	}
+
 	public NatBehaviorDiscoveryTest(InetAddress sourceIaddress, int sourcePort, String stunServer, int stunServerPort) {
 		this.sourceIaddress = sourceIaddress;
 		this.sourcePort = sourcePort;
