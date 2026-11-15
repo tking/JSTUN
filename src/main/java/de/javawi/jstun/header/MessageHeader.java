@@ -158,6 +158,9 @@ public class MessageHeader implements MessageHeaderInterface {
 	
 	public void parseAttributes(byte[] data) throws MessageAttributeParsingException {
 		try {
+			if (data.length < 20) {
+				throw new MessageAttributeParsingException("Data array too short");
+			}
 			byte[] lengthArray = new byte[2];
 			System.arraycopy(data, 2, lengthArray, 0, 2);
 			int length = Utility.twoBytesToInteger(lengthArray);
@@ -165,6 +168,9 @@ public class MessageHeader implements MessageHeaderInterface {
 			byte[] cuttedData;
 			int offset = 20;
 			while (length > 0) {
+				if (length < 4 || (offset + length) > data.length) {
+					throw new MessageAttributeParsingException("Data array too short");
+				}
 				cuttedData = new byte[length];
 				System.arraycopy(data, offset, cuttedData, 0, length);
 				byte[] attrLenArray = new byte[2];

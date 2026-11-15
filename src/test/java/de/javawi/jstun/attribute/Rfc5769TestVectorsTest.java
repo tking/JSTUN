@@ -228,4 +228,32 @@ public class Rfc5769TestVectorsTest {
 		assertEquals(54321, parsedXma.getPort());
 		assertEquals(new Address("203.0.113.5"), parsedXma.getAddress());
 	}
+
+	@Test
+	public void testIssue21CoturnErrorResponsePacket() throws Exception {
+		// Exact Coturn-4.5.2 BindingErrorResponse hex dump reported in GitHub Issue #21
+		String hex = "01110070f4a21402935aef2941f7426af83c01ab"
+				+ "0009004c00000414556e6b6e6f776e206174747269627574653a205455524e20"
+				+ "7365727665722077617320636f6e6669677572656420776974686f7574205246"
+				+ "43203537383020737570706f72740000"
+				+ "8022001c436f7475726e2d342e352e32202764616e2045696465722700000000";
+		byte[] packet = new byte[hex.length() / 2];
+		for (int i = 0; i < packet.length; i++) {
+			packet[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+		}
+
+		MessageHeader parsed = MessageHeader.parseHeader(packet);
+		assertEquals(MessageHeaderType.BindingErrorResponse, parsed.getType());
+		parsed.parseAttributes(packet);
+
+		ErrorCode ec = (ErrorCode) parsed.getMessageAttribute(MessageAttributeType.ErrorCode);
+		assertNotNull(ec);
+		assertEquals(420, ec.getResponseCode());
+		assertEquals("Unknown attribute: TURN server was configured without RFC 5780 support", ec.getReason());
+		assertNotNull(ec.getBytes());
+
+		Software sw = (Software) parsed.getMessageAttribute(MessageAttributeType.Software);
+		assertNotNull(sw);
+		assertEquals("Coturn-4.5.2 'dan Eider'", sw.getSoftware());
+	}
 }
