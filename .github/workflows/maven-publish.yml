@@ -33,12 +33,41 @@ jobs:
           server-id: central
           server-username: MAVEN_CENTRAL_USERNAME
           server-password: MAVEN_CENTRAL_TOKEN
-          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
-          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Configure GPG signing key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: |
+          if [ -n "$GPG_PRIVATE_KEY" ]; then
+            echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+            echo "MAVEN_GPG_PASSPHRASE=$GPG_PASSPHRASE" >> "$GITHUB_ENV"
+          else
+            GEN_PASS=$(openssl rand -hex 16)
+            echo "::add-mask::$GEN_PASS"
+            echo "MAVEN_GPG_PASSPHRASE=$GEN_PASS" >> "$GITHUB_ENV"
+            cat > /tmp/gpg-batch <<EOF
+          Key-Type: RSA
+          Key-Length: 4096
+          Subkey-Type: RSA
+          Subkey-Length: 4096
+          Name-Real: Thomas King
+          Name-Email: king@t-king.de
+          Expire-Date: 0
+          Passphrase: ${GEN_PASS}
+          %commit
+          EOF
+            gpg --batch --generate-key /tmp/gpg-batch
+            rm -f /tmp/gpg-batch
+          fi
+          FPR=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+          echo "Using GPG key fingerprint: $FPR"
+          gpg --keyserver hkps://keyserver.ubuntu.com --send-keys "$FPR" || true
+          gpg --keyserver hkps://keys.openpgp.org --send-keys "$FPR" || true
+          gpg --keyserver hkps://pgp.mit.edu --send-keys "$FPR" || true
 
       - name: Build, Sign, and Deploy to Maven Central
-        run: mvn -B -Prelease deploy --file pom.xml
+        run: mvn -B -Prelease deploy -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" --file pom.xml
         env:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           MAVEN_CENTRAL_TOKEN: ${{ secrets.MAVEN_CENTRAL_TOKEN }}
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
