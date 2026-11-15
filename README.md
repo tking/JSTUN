@@ -49,11 +49,21 @@ How does it work?
 ```
 
 ### Client Discovery
-To run the classic NAT discovery demo across local network interfaces:
+To run the classic NAT discovery demo (`DiscoveryTestDemo`), RFC 5780 NAT behavior discovery demo (`NatBehaviorDiscoveryTestDemo`), fast discovery demo (`FastDiscoveryTestDemo`), or UDP binding lifetime discovery demo (`BindingLifetimeTestDemo`):
 ```bash
+# Classic RFC 3489 NAT Discovery
 java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.DiscoveryTestDemo
+
+# RFC 5780 NAT Mapping & Filtering Behavior Discovery
+java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+  de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo
+
+# UDP Binding Lifetime Discovery
+java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+  de.javawi.jstun.test.demo.BindingLifetimeTestDemo
 ```
+*(Or using the standalone shaded JAR without extra classpath entries: `java -cp target/jstun-1.0.0-server.jar de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo`)*
 
 You can also use `DiscoveryTest`, `FastDiscoveryTest`, `NatBehaviorDiscoveryTest` (for RFC 5780 Mapping & Filtering behavior), or `BindingLifetimeTest` programmatically:
 ```java
