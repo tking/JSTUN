@@ -39,7 +39,7 @@ public class DiscoveryTestDemo implements Runnable {
 	
 	public void run() {		
 		try {
-			DiscoveryTest test = new DiscoveryTest(iaddress, port, "jstun.javawi.de", 3478);
+			DiscoveryTest test = new DiscoveryTest(iaddress, port, "jstun.t-king.de", 3478);
 			//DiscoveryTest test = new DiscoveryTest(iaddress, "stun.sipgate.net", 10000);
 			// iphone-stun.freenet.de:3478
 			// larry.gloo.net:3478
