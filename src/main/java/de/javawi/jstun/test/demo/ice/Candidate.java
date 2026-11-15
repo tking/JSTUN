@@ -18,11 +18,13 @@ import java.net.UnknownHostException;
 import de.javawi.jstun.util.Address;
 import de.javawi.jstun.util.UtilityException;
 
-public class Candidate implements Comparable {
+public class Candidate implements Comparable<Candidate> {
 	// The ieft-mmusic-ice-12 draft is not non-ambigious about the number of types.
-	// Chapter 5.1 defines 3 and 4 types on page 16 and page 17, respectively. 
-	public enum CandidateType { Local, ServerReflexive, PeerReflexive, Relayed };
-	
+	// Chapter 5.1 defines 3 and 4 types on page 16 and page 17, respectively.
+	public enum CandidateType {
+		Local, ServerReflexive, PeerReflexive, Relayed
+	};
+
 	private DatagramSocket socket;
 	private CandidateType type;
 	private short componentId;
@@ -30,8 +32,9 @@ public class Candidate implements Comparable {
 	private int foundationId;
 	private Candidate base;
 	private boolean isInUse;
-	
-	public Candidate(Address address, short componentId) throws SocketException, UnknownHostException, UtilityException {
+
+	public Candidate(Address address, short componentId)
+			throws SocketException, UnknownHostException, UtilityException {
 		this.socket = new DatagramSocket(0, address.getInetAddress());
 		this.type = CandidateType.Local;
 		this.componentId = componentId;
@@ -39,8 +42,9 @@ public class Candidate implements Comparable {
 		this.base = this;
 		this.isInUse = false;
 	}
-	
-	public Candidate(Address address, CandidateType type, short componentId, Candidate base) throws SocketException, UnknownHostException, UtilityException {
+
+	public Candidate(Address address, CandidateType type, short componentId, Candidate base)
+			throws SocketException, UnknownHostException, UtilityException {
 		this.socket = new DatagramSocket(0, address.getInetAddress());
 		this.type = type;
 		setComponentId(componentId);
@@ -52,40 +56,41 @@ public class Candidate implements Comparable {
 	public void setBase(Candidate base) {
 		this.base = base;
 	}
-	
+
 	public Candidate getBase() {
 		return base;
 	}
-	
+
 	public CandidateType getCandidateType() {
 		return type;
 	}
-	
+
 	public void setComponentId(short componentId) {
-		if ((componentId < 1) || (componentId > 256)) throw new IllegalArgumentException(componentId + " is not between 1 and 256 inclusive.");
+		if ((componentId < 1) || (componentId > 256))
+			throw new IllegalArgumentException(componentId + " is not between 1 and 256 inclusive.");
 		this.componentId = componentId;
 	}
-	
+
 	public short getComponentId() {
 		return componentId;
 	}
-	
+
 	public void setFoundationId(int foundationId) {
 		this.foundationId = foundationId;
 	}
-	
+
 	public int getFoundationId() {
 		return foundationId;
 	}
-	
+
 	public void setPriority(int priority) {
 		this.priority = priority;
 	}
-	
+
 	public int getPriority() {
 		return priority;
 	}
-	
+
 	public Address getAddress() throws UtilityException {
 		return new Address(socket.getLocalAddress().getAddress());
 	}
@@ -93,23 +98,24 @@ public class Candidate implements Comparable {
 	public int getPort() {
 		return socket.getLocalPort();
 	}
-	
+
 	public void setInUse(boolean isInUse) {
 		this.isInUse = isInUse;
 	}
-	
+
 	public boolean getInUse() {
 		return isInUse;
 	}
-	
-	public int compareTo(Object arg0) {
-		Candidate cand = (Candidate) arg0;
+
+	public int compareTo(Candidate cand) {
 		return cand.getPriority() - getPriority();
 	}
-	
+
 	public boolean equals(Object o) {
-		if (o == null) return false;
-		if ((((Candidate) o).socket.equals(socket)) && (((Candidate) o).base.equals(base))) return true;
+		if (o == null)
+			return false;
+		if ((((Candidate) o).socket.equals(socket)) && (((Candidate) o).base.equals(base)))
+			return true;
 		return false;
 	}
 }

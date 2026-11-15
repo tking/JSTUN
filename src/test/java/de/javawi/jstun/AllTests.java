@@ -11,18 +11,14 @@
 
 package de.javawi.jstun;
 
-import junit.framework.Test;
-import junit.framework.TestSuite;
-import de.javawi.jstun.util.*;
-import de.javawi.jstun.attribute.*;
+import org.junit.platform.suite.api.SelectClasses;
+import org.junit.platform.suite.api.Suite;
 
+import de.javawi.jstun.attribute.MappedAddressTest;
+import de.javawi.jstun.util.AddressTest;
+
+@Suite
+@SelectClasses({ AddressTest.class, MappedAddressTest.class })
 public class AllTests {
-
-	public static Test suite() {
-		TestSuite suite = new TestSuite("Test for de.javawi.jstun");
-		suite.addTestSuite(AddressTest.class);
-		suite.addTestSuite(MappedAddressTest.class);
-		return suite;
-	}
 
 }
