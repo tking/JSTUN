@@ -85,8 +85,13 @@ public class ICENegotiator {
 							// add server reflexive address
 							DiscoveryTest test = new DiscoveryTest(iaddress, 0, stunServer, stunPort);
 							DiscoveryInfo di = test.test();
-							if (di.getPublicIP() != null) {
-								Candidate cand = new Candidate(new Address(di.getPublicIP().getAddress()), CandidateType.ServerReflexive, componentId, local);
+							if (di.getPublicIP() != null && !di.isOpenAccess()) {
+								Candidate cand = new Candidate(
+										new Address(di.getPublicIP().getAddress()),
+										di.getPublicPort(),
+										CandidateType.ServerReflexive,
+										componentId,
+										local);
 								cand.setComponentId(componentId);
 								candidates.add(cand);
 							}
@@ -159,7 +164,7 @@ public class ICENegotiator {
 				localValue = numberRelayed--;
 			}
 			componentValue = cand.getComponentId();
-			int priority = ((2 ^ 24) * typeValue) + ((2 ^ 8) * localValue) + componentValue;
+			int priority = ((1 << 24) * typeValue) + ((1 << 8) * localValue) + componentValue;
 			cand.setPriority(priority);
 		}
 	}
