@@ -11,6 +11,7 @@
 
 package de.javawi.jstun.header;
 
+import java.security.SecureRandom;
 import java.util.Iterator;
 import java.util.TreeMap;
 
@@ -19,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
+import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
@@ -29,16 +31,15 @@ public class MessageHeader implements MessageHeaderInterface {
      * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
      * |      STUN Message Type        |         Message Length        |
      * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-     * |
+     * |                         Magic Cookie                          |
      * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-     *
-     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-     *                          Transaction ID
-     * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-     *                                                                 |
+     * |                                                               |
+     * |                     Transaction ID (96 bits)                  |
+     * |                                                               |
      * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 */
 	private static final Logger LOGGER = LoggerFactory.getLogger(MessageHeader.class);
+	private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 	MessageHeaderType type;
 	byte[] id = new byte[16];
 	
@@ -76,14 +77,21 @@ public class MessageHeader implements MessageHeaderInterface {
 	}
 	
 	public void generateTransactionID() throws UtilityException {
-		System.arraycopy(Utility.integerToTwoBytes((int)(Math.random() * 65536)), 0, id, 0, 2);
-		System.arraycopy(Utility.integerToTwoBytes((int)(Math.random() * 65536)), 0, id, 2, 2);
-		System.arraycopy(Utility.integerToTwoBytes((int)(Math.random() * 65536)), 0, id, 4, 2);
-		System.arraycopy(Utility.integerToTwoBytes((int)(Math.random() * 65536)), 0, id, 6, 2);
-		System.arraycopy(Utility.integerToTwoBytes((int)(Math.random() * 65536)), 0, id, 8, 2);
-		System.arraycopy(Utility.integerToTwoBytes((int)(Math.random() * 65536)), 0, id, 10, 2);
-		System.arraycopy(Utility.integerToTwoBytes((int)(Math.random() * 65536)), 0, id, 12, 2);
-		System.arraycopy(Utility.integerToTwoBytes((int)(Math.random() * 65536)), 0, id, 14, 2);
+		id[0] = 0x21;
+		id[1] = 0x12;
+		id[2] = (byte) 0xA4;
+		id[3] = 0x42;
+		byte[] randomBytes = new byte[12];
+		SECURE_RANDOM.nextBytes(randomBytes);
+		System.arraycopy(randomBytes, 0, id, 4, 12);
+	}
+
+	public void generateRFC3489TransactionID() throws UtilityException {
+		SECURE_RANDOM.nextBytes(id);
+	}
+
+	public boolean hasMagicCookie() {
+		return (id[0] == 0x21) && (id[1] == 0x12) && (id[2] == (byte) 0xA4) && (id[3] == 0x42);
 	}
 	
 	public byte[] getTransactionID() {
@@ -106,6 +114,9 @@ public class MessageHeader implements MessageHeaderInterface {
 	}
 	
 	public void addMessageAttribute(MessageAttribute attri) {
+		if (attri instanceof XorMappedAddress) {
+			((XorMappedAddress) attri).setTransactionID(this.id);
+		}
 		ma.put(attri.getType(), attri);
 	}
 	
@@ -118,6 +129,9 @@ public class MessageHeader implements MessageHeaderInterface {
 		Iterator<MessageAttribute.MessageAttributeType> it = ma.keySet().iterator();
 		while (it.hasNext()) {
 			MessageAttribute attri = ma.get(it.next());
+			if (attri instanceof XorMappedAddress) {
+				((XorMappedAddress) attri).setTransactionID(this.id);
+			}
 			length += attri.getLength();
 		}
 		// add attribute size + attributes.getSize();
@@ -131,8 +145,9 @@ public class MessageHeader implements MessageHeaderInterface {
 		it = ma.keySet().iterator();
 		while (it.hasNext()) {
 			MessageAttribute attri = ma.get(it.next());
-			System.arraycopy(attri.getBytes(), 0, result, offset, attri.getLength());
-			offset += attri.getLength();
+			int attrLen = attri.getLength();
+			System.arraycopy(attri.getBytes(), 0, result, offset, attrLen);
+			offset += attrLen;
 		}
 		return result;
 	}
@@ -152,10 +167,21 @@ public class MessageHeader implements MessageHeaderInterface {
 			while (length > 0) {
 				cuttedData = new byte[length];
 				System.arraycopy(data, offset, cuttedData, 0, length);
-				MessageAttribute ma = MessageAttribute.parseCommonHeader(cuttedData); 
-				addMessageAttribute(ma);
-				length -= ma.getLength();
-				offset += ma.getLength();
+				byte[] attrLenArray = new byte[2];
+				System.arraycopy(cuttedData, 2, attrLenArray, 0, 2);
+				int attrValueLength = Utility.twoBytesToInteger(attrLenArray);
+				int paddedValueLength = attrValueLength;
+				if ((paddedValueLength % 4) != 0) {
+					paddedValueLength += 4 - (paddedValueLength % 4);
+				}
+				int wireAttrLength = 4 + paddedValueLength;
+				if (wireAttrLength > length) {
+					wireAttrLength = 4 + attrValueLength;
+				}
+				MessageAttribute parsedAttr = MessageAttribute.parseCommonHeader(cuttedData, id);
+				addMessageAttribute(parsedAttr);
+				length -= wireAttrLength;
+				offset += wireAttrLength;
 			}
 		} catch (UtilityException ue) {
 			throw new MessageAttributeParsingException("Parsing error");

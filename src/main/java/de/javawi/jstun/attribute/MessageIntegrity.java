@@ -11,17 +11,106 @@
 
 package de.javawi.jstun.attribute;
 
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.util.Arrays;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import de.javawi.jstun.util.Utility;
+import de.javawi.jstun.util.UtilityException;
+
 public class MessageIntegrity extends MessageAttribute {
-	// incomplete message integrity implementation
+	private byte[] hmac = new byte[20];
+
 	public MessageIntegrity() {
 		super(MessageAttribute.MessageAttributeType.MessageIntegrity);
 	}
-	
-	public byte[] getBytes() {
-		return new byte[0];
+
+	public MessageIntegrity(byte[] hmac) throws MessageAttributeException {
+		super(MessageAttribute.MessageAttributeType.MessageIntegrity);
+		setHmac(hmac);
 	}
-	
-	public static MessageIntegrity parse(byte[] data) {
-		return new MessageIntegrity();
+
+	public byte[] getHmac() {
+		byte[] copy = new byte[hmac.length];
+		System.arraycopy(hmac, 0, copy, 0, hmac.length);
+		return copy;
+	}
+
+	public void setHmac(byte[] hmac) throws MessageAttributeException {
+		if (hmac == null || hmac.length != 20) {
+			throw new MessageAttributeException("HMAC-SHA1 must be 20 bytes");
+		}
+		System.arraycopy(hmac, 0, this.hmac, 0, 20);
+	}
+
+	@Override
+	public byte[] getBytes() throws UtilityException {
+		byte[] result = new byte[24];
+		System.arraycopy(Utility.integerToTwoBytes(typeToInteger(type)), 0, result, 0, 2);
+		System.arraycopy(Utility.integerToTwoBytes(20), 0, result, 2, 2);
+		System.arraycopy(hmac, 0, result, 4, 20);
+		return result;
+	}
+
+	public static byte[] computeShortTermHMAC(byte[] messagePrefixWithoutIntegrity, String password)
+			throws UtilityException {
+		return computeHMAC(messagePrefixWithoutIntegrity, password.getBytes(StandardCharsets.UTF_8));
+	}
+
+	public static byte[] computeLongTermHMAC(byte[] messagePrefixWithoutIntegrity, String username, String realm,
+			String password) throws UtilityException {
+		try {
+			MessageDigest md5 = MessageDigest.getInstance("MD5");
+			String credentials = username + ":" + realm + ":" + password;
+			byte[] key = md5.digest(credentials.getBytes(StandardCharsets.UTF_8));
+			return computeHMAC(messagePrefixWithoutIntegrity, key);
+		} catch (GeneralSecurityException gse) {
+			throw new UtilityException("Failed to compute MD5 key for long-term credentials: " + gse.getMessage());
+		}
+	}
+
+	public static byte[] computeHMAC(byte[] messagePrefixWithoutIntegrity, byte[] key) throws UtilityException {
+		if (messagePrefixWithoutIntegrity == null || messagePrefixWithoutIntegrity.length < 20) {
+			throw new UtilityException("Message prefix too short for STUN header");
+		}
+		try {
+			byte[] copy = new byte[messagePrefixWithoutIntegrity.length];
+			System.arraycopy(messagePrefixWithoutIntegrity, 0, copy, 0, messagePrefixWithoutIntegrity.length);
+			int adjustedLength = (copy.length - 20) + 24;
+			byte[] lenBytes = Utility.integerToTwoBytes(adjustedLength);
+			copy[2] = lenBytes[0];
+			copy[3] = lenBytes[1];
+
+			Mac mac = Mac.getInstance("HmacSHA1");
+			SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA1");
+			mac.init(keySpec);
+			return mac.doFinal(copy);
+		} catch (GeneralSecurityException gse) {
+			throw new UtilityException("Failed to compute HMAC-SHA1: " + gse.getMessage());
+		}
+	}
+
+	public boolean verifyShortTerm(byte[] messagePrefixWithoutIntegrity, String password) throws UtilityException {
+		byte[] expected = computeShortTermHMAC(messagePrefixWithoutIntegrity, password);
+		return Arrays.equals(this.hmac, expected);
+	}
+
+	public boolean verifyLongTerm(byte[] messagePrefixWithoutIntegrity, String username, String realm, String password)
+			throws UtilityException {
+		byte[] expected = computeLongTermHMAC(messagePrefixWithoutIntegrity, username, realm, password);
+		return Arrays.equals(this.hmac, expected);
+	}
+
+	public static MessageIntegrity parse(byte[] data) throws MessageAttributeParsingException {
+		if (data == null || data.length < 20) {
+			throw new MessageAttributeParsingException("Data array too short for MessageIntegrity");
+		}
+		MessageIntegrity mi = new MessageIntegrity();
+		System.arraycopy(data, 0, mi.hmac, 0, 20);
+		return mi;
 	}
 }

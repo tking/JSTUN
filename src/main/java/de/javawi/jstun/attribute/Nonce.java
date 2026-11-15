@@ -1,0 +1,59 @@
+/*
+ * This file is part of JSTUN. 
+ * 
+ * Copyright (c) 2005 Thomas King <king@t-king.de> - All rights
+ * reserved.
+ * 
+ * This software is licensed under either the GNU Public License (GPL),
+ * or the Apache 2.0 license. Copies of both license agreements are
+ * included in this distribution.
+ */
+
+package de.javawi.jstun.attribute;
+
+import java.nio.charset.StandardCharsets;
+
+import de.javawi.jstun.util.Utility;
+import de.javawi.jstun.util.UtilityException;
+
+public class Nonce extends MessageAttribute {
+	private String nonce = "";
+
+	public Nonce() {
+		super(MessageAttribute.MessageAttributeType.Nonce);
+	}
+
+	public Nonce(String nonce) {
+		super(MessageAttribute.MessageAttributeType.Nonce);
+		setNonce(nonce);
+	}
+
+	public String getNonce() {
+		return nonce;
+	}
+
+	public void setNonce(String nonce) {
+		this.nonce = (nonce != null) ? nonce : "";
+	}
+
+	@Override
+	public byte[] getBytes() throws UtilityException {
+		byte[] temp = nonce.getBytes(StandardCharsets.UTF_8);
+		int unpaddedLength = temp.length;
+		int paddedLength = unpaddedLength;
+		if ((paddedLength % 4) != 0) {
+			paddedLength += 4 - (paddedLength % 4);
+		}
+		byte[] result = new byte[4 + paddedLength];
+		System.arraycopy(Utility.integerToTwoBytes(typeToInteger(type)), 0, result, 0, 2);
+		System.arraycopy(Utility.integerToTwoBytes(unpaddedLength), 0, result, 2, 2);
+		System.arraycopy(temp, 0, result, 4, temp.length);
+		return result;
+	}
+
+	public static Nonce parse(byte[] data) {
+		Nonce result = new Nonce();
+		result.setNonce(new String(data, StandardCharsets.UTF_8));
+		return result;
+	}
+}
