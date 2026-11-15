@@ -11,13 +11,9 @@
 
 package de.javawi.jstun.attribute;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import de.javawi.jstun.util.*;
 
 public class ChangeRequest extends MessageAttribute {
-	private static final Logger LOGGER = LoggerFactory.getLogger(ChangeRequest.class);
    /* 
     *  0                   1                   2                   3
     *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -77,7 +73,6 @@ public class ChangeRequest extends MessageAttribute {
 			case 6: cr.setChangeIP(); cr.setChangePort(); break;
 			default: throw new MessageAttributeParsingException("Status parsing error"); 
 			}
-			LOGGER.debug("Message Attribute: Change Request parsed: changeIP={}, changePort={}.", cr.isChangeIP(), cr.isChangePort());
 			return cr;
 		} catch (UtilityException ue) {
 			throw new MessageAttributeParsingException("Parsing error");

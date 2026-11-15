@@ -13,14 +13,10 @@ package de.javawi.jstun.attribute;
 
 import java.util.zip.CRC32;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class Fingerprint extends MessageAttribute {
-	private static final Logger LOGGER = LoggerFactory.getLogger(Fingerprint.class);
 	public static final long FINGERPRINT_XOR_MASK = 0x5354554eL;
 	private long crc;
 
@@ -95,7 +91,6 @@ public class Fingerprint extends MessageAttribute {
 				throw new MessageAttributeParsingException("Data array too short for Fingerprint");
 			}
 			long val = Utility.fourBytesToLong(data);
-			LOGGER.debug("Message Attribute: Fingerprint parsed: crc=0x{}.", Long.toHexString(val));
 			return new Fingerprint(val);
 		} catch (UtilityException ue) {
 			throw new MessageAttributeParsingException("Parsing error");

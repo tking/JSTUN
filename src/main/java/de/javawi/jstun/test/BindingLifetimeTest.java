@@ -153,7 +153,8 @@ public class BindingLifetimeTest {
 			try {
 				lifetimeQuery();
 			} catch (Exception e) {
-				LOGGER.error("Unhandled Exception. BindLifetimeTasks stopped: {}", e.getMessage(), e);
+				LOGGER.debug("Unhandled Exception. BindLifetimeTasks stopped.");
+				e.printStackTrace();
 			}
 		}
 
@@ -192,7 +193,7 @@ public class BindingLifetimeTest {
 				}
 				LOGGER.debug("Binding Response received.");
 				if (upperBinarySearchLifetime == (lowerBinarySearchLifetime + 1)) {
-					LOGGER.info("BindingLifetimeTest completed. UDP binding lifetime: {}.", binarySearchLifetime);
+					LOGGER.debug("BindingLifetimeTest completed. UDP binding lifetime: " + binarySearchLifetime + ".");
 					completed = true;
 					return;
 				}
@@ -210,7 +211,7 @@ public class BindingLifetimeTest {
 			} catch (SocketTimeoutException ste) {
 				LOGGER.debug("Read operation at query socket timeout.");
 				if (upperBinarySearchLifetime == (lowerBinarySearchLifetime + 1)) {
-					LOGGER.info("BindingLifetimeTest completed. UDP binding lifetime: {}.", binarySearchLifetime);
+					LOGGER.debug("BindingLifetimeTest completed. UDP binding lifetime: " + binarySearchLifetime + ".");
 					completed = true;
 					return;
 				}
