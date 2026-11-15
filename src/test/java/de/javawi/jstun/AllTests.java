@@ -15,10 +15,12 @@ import org.junit.platform.suite.api.SelectClasses;
 import org.junit.platform.suite.api.Suite;
 
 import de.javawi.jstun.attribute.MappedAddressTest;
+import de.javawi.jstun.attribute.Rfc5769TestVectorsTest;
+import de.javawi.jstun.header.MessageHeaderTest;
 import de.javawi.jstun.util.AddressTest;
 
 @Suite
-@SelectClasses({ AddressTest.class, MappedAddressTest.class })
+@SelectClasses({ AddressTest.class, MappedAddressTest.class, MessageHeaderTest.class, Rfc5769TestVectorsTest.class })
 public class AllTests {
 
 }
