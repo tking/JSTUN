@@ -1,44 +1,86 @@
-[![Build Status](https://travis-ci.org/tking/JSTUN.svg?branch=master)](https://travis-ci.org/tking/JSTUN) [![Maven Central](https://img.shields.io/maven-central/v/de.javawi.jstun/jstun.svg)](http://search.maven.org/#search|gav|1|g:"de.javawi.jstun"%20AND%20a:"jstun")
+[![Java CI with Maven](https://github.com/tking/JSTUN/actions/workflows/maven.yml/badge.svg)](https://github.com/tking/JSTUN/actions/workflows/maven.yml) [![Maven Central](https://img.shields.io/maven-central/v/de.javawi.jstun/jstun.svg)](https://central.sonatype.com/artifact/de.javawi.jstun/jstun)
 
 "JSTUN" - Java Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)
 =========================================================================================================
 
-(by Thomas King - king[at]t-king.de) 
- 
+(by Thomas King - king[at]t-king.de)
+
 
 What is "JSTUN"?
 ----------------
-"JSTUN" is a Java-based STUN (Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)) implementation. STUN provides a mean for applications to discover the presence and type of firewalls or NATs between them and the public internet. Additionally, in presence of a NAT STUN can be used by applications to learn the public Internet Protocol (IP) address assigned to the NAT.
+"JSTUN" is a Java-based STUN (*Session Traversal Utilities for NAT* / *Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)*) implementation. STUN provides a means for applications to discover the presence and behavior of firewalls or NATs between them and the public Internet. Additionally, in the presence of a NAT, STUN can be used by applications to learn the public Internet Protocol (IPv4 / IPv6) address and port assigned to the NAT binding.
 
-So far, most of the message headers and attributes as standardized in RFC 3489 are part of "JSTUN". The current "JSTUN" version also includes a STUN client and a STUN server. "JSTUN" is dual-licensed under GNU General Public License iversion 2.0 and Apache License version 2.0.
+"JSTUN" supports both classic STUN (**RFC 3489**) and modern STUN extensions (**RFC 5389 / RFC 8489**, **RFC 5769**, and **RFC 5780**), and includes STUN discovery clients as well as a dual-homed STUN server. "JSTUN" is dual-licensed under the GNU General Public License version 2.0 (GPLv2) and the Apache License version 2.0.
+
+
+Supported RFCs & Features
+-------------------------
+* **RFC 5389 / RFC 8489 – Session Traversal Utilities for NAT (STUN)**
+  * **Magic Cookie & 96-bit Transaction ID:** `MessageHeader.generateTransactionID()` generates the standard 32-bit Magic Cookie (`0x2112A442`) followed by 96 cryptographically random bits via `SecureRandom` (`hasMagicCookie()` checks for its presence, and `generateRFC3489TransactionID()` remains available for legacy 128-bit transaction IDs).
+  * **`XOR-MAPPED-ADDRESS` (`0x0020` / `0x8020`):** Full IPv4 (XOR with Magic Cookie) and IPv6 (128-bit XOR with Magic Cookie + Transaction ID) encoding and decoding via `XorMappedAddress`.
+  * **`MESSAGE-INTEGRITY` (`0x0008`):** Complete HMAC-SHA1 calculation and verification in `MessageIntegrity` for both short-term credentials (`key`) and long-term credentials (`MD5(username:realm:password)`), including STUN header length adjustment.
+  * **`FINGERPRINT` (`0x8028`):** CRC-32 XOR `0x5354554e` calculation and verification in `Fingerprint` to distinguish STUN packets from multiplexed protocols.
+  * **Additional RFC 5389 / 8489 Attributes:** `Software` (`0x8022`), `AlternateServer` (`0x8023`), `Realm` (`0x0014`), and `Nonce` (`0x0015`).
+  * **4-Byte Padding Alignment:** Automatic 4-byte boundary padding when serializing and parsing variable-length attributes and unknown comprehension-optional attributes (`>= 0x8000`).
+
+* **RFC 5780 – NAT Behavior Discovery Using STUN**
+  * **Two-Dimensional NAT Classification (`DiscoveryInfo`):**
+    * `MappingBehavior`: `DIRECT`, `ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`
+    * `FilteringBehavior`: `ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`
+  * **`NatBehaviorDiscoveryTest`:** Implements the multi-step RFC 5780 procedures for determining NAT Mapping Behavior (Section 4.3, Tests I–III) and NAT Filtering Behavior (Section 4.4, Tests II–III) while maintaining compatibility with classic `DiscoveryInfo` flags.
+  * **RFC 5780 Attributes:** `OtherAddress` (`0x802C`, replacing `CHANGED-ADDRESS`), `ResponseOrigin` (`0x802B`, replacing `SOURCE-ADDRESS`), `ResponsePort` (`0x0027`), and `Padding` (`0x0026`).
+
+* **RFC 3489 – Classic STUN & Dual-Stack IPv4/IPv6**
+  * Classic cone/symmetric NAT discovery via `DiscoveryTest`, `FastDiscoveryTest`, and `BindingLifetimeTest`, upgraded to transparently accept `XOR-MAPPED-ADDRESS` and `OTHER-ADDRESS` with fallback to `MAPPED-ADDRESS` and `CHANGED-ADDRESS`.
+  * IPv4 and IPv6 address family support (thanks to https://github.com/fourjr).
+  * Dual-homed `StunServer` supporting standard Binding Requests (with or without `CHANGE-REQUEST`) and returning `MAPPED-ADDRESS`, `XOR-MAPPED-ADDRESS`, `SOURCE-ADDRESS`, `RESPONSE-ORIGIN`, `CHANGED-ADDRESS`, and `OTHER-ADDRESS` while honoring `RESPONSE-PORT` and `RESPONSE-ADDRESS`.
 
 
 How does it work?
 -----------------
-STUN is described in RFC 3489 and RFC 5389.
+### Client Discovery
+To run the classic NAT discovery demo across local network interfaces:
+```bash
+java -cp target/jstun-0.7.6-SNAPSHOT.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+  de.javawi.jstun.test.demo.DiscoveryTestDemo
+```
 
-A STUN server is running on jstun.javawi.de:3478.
+You can also use `DiscoveryTest`, `FastDiscoveryTest`, `NatBehaviorDiscoveryTest` (for RFC 5780 Mapping & Filtering behavior), or `BindingLifetimeTest` programmatically:
+```java
+NatBehaviorDiscoveryTest test = new NatBehaviorDiscoveryTest(
+    InetAddress.getByName("0.0.0.0"), "jstun.javawi.de", 3478);
+DiscoveryInfo info = test.test();
+System.out.println(info);
+```
 
-Just invoke "java -cp jstun-0.7.4.jar:slf4j-api-1.5.6.jar:slf4j-jdk14-1.5.6.jar de.javawi.jstun.test.demo.DiscoveryTestDemo" or use the de.javawi.jstun.test.demo.DiscoveryTest and de.javawi.jstun.test.demo.BindingLifetimeTest classes in order to start the STUN client.
+### STUN Server
+A `JSTUN`-based STUN server is included and requires a dual-homed machine (two IP addresses and two ports):
+```bash
+java -cp target/jstun-0.7.6-SNAPSHOT.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+  de.javawi.jstun.test.demo.StunServer PORT1 IP1 PORT2 IP2
+```
 
-A "JSTUN"-based STUN server is also available. Just try it (assuming you own a dual-homed machine): java -cp jstun-0.7.4.jar:slf4j-api-1.5.6.jar:slf4j-jdk14-1.5.6.jar de.javawi.jstun.test.demo.StunServer PORT1 IP1 PORT2 IP2.
- 
 
-What about RFC 5389?
---------------------
-I am looking for a way to enhance the current "JSTUN" implementation to support the new Session Traversal Utilities for NAT (STUN) protocol as described in RFC 5389 completely. If you are interested in supporting this effort with code or money please drop me a mail (king[at]t-king.de).
-IPv6 support is already implemented thanks to https://github.com/fourjr .
- 
-
-Limits?
+Testing
 -------
-Due to the lack of fully RFC compliant STUN servers I could not test the shared secret request / response functionality. Additionally, the message attribute username, password and message integrity are not tested for the same reason. The implementation of the message attribute message integrity is not completed, because I see no reason to add a cryptographic library as long as no public available STUN server supports message integrity.
+The project uses **JUnit 5** (`org.junit.jupiter`) and can be built and tested via Maven:
+```bash
+mvn test
+```
 
-The reality is not as dark as it might seem after reading the previous section. All tested STUN servers provided a minimal set of functionality that is required to discover firewalls and NATs.
+The test suite (`de.javawi.jstun.AllTests`) includes:
+* **`Rfc5769TestVectorsTest`:** Validates byte-for-byte wire compatibility against the official **RFC 5769** STUN test vectors:
+  * Section 2.2 IPv4 Binding Response (`192.0.2.1:32853`, `XOR-MAPPED-ADDRESS`, `SOFTWARE`, `MESSAGE-INTEGRITY`, `FINGERPRINT`)
+  * Section 2.3 IPv6 Binding Response (`2001:db8:1234:5678:11:2233:4455:6677:32853`)
+  * 4-byte padding alignment for unaligned comprehension-optional attributes (`>= 0x8000`)
+* **`Rfc5780AttributesAndDiscoveryTest`:** Tests RFC 5780 attribute serialization/parsing (`OtherAddress`, `ResponseOrigin`, `ResponsePort`, `Padding`) and two-dimensional NAT classification in `DiscoveryInfo`.
+* **`MessageHeaderTest`:** Tests STUN header serialization, parsing, Magic Cookie handling, and Transaction IDs.
+* **`MappedAddressTest` & `AddressTest`:** Tests IPv4 and IPv6 address utilities and `MappedAddress` attributes.
 
-If you found a bug or if you want to implement enhancements or additional functionalities please do not hesitate to contact me.
 
- 
 What do you need?
 -----------------
-A Java 6 compliant Java Runtime Environment is required by "JSTUN".
+* **Java 17+** (configured as compiler source/target in `pom.xml`, with `Automatic-Module-Name: de.javawi.jstun` for Java module system compatibility).
+* **Maven 3+** for building and running the test suite.
+
+If you find a bug or want to contribute enhancements, please open an issue or pull request on [GitHub](https://github.com/tking/JSTUN).
