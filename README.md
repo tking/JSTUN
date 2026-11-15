@@ -38,10 +38,20 @@ Supported RFCs & Features
 
 How does it work?
 -----------------
+### Maven Dependency
+`JSTUN` is published on Maven Central:
+```xml
+<dependency>
+    <groupId>de.javawi.jstun</groupId>
+    <artifactId>jstun</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
 ### Client Discovery
 To run the classic NAT discovery demo across local network interfaces:
 ```bash
-java -cp target/jstun-0.7.6-SNAPSHOT.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.DiscoveryTestDemo
 ```
 
@@ -56,7 +66,7 @@ System.out.println(info);
 ### STUN Server
 A `JSTUN`-based STUN server is included and requires a dual-homed machine (two IP addresses and two ports):
 ```bash
-java -cp target/jstun-0.7.6-SNAPSHOT.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.StunServer PORT1 IP1 PORT2 IP2
 ```
 
