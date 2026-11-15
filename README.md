@@ -64,7 +64,11 @@ System.out.println(info);
 ```
 
 ### STUN Server
-A `JSTUN`-based STUN server is included and requires a dual-homed machine (two IP addresses and two ports):
+A `JSTUN`-based STUN server is included and requires a dual-homed machine (two IP addresses and two ports). You can run the self-contained standalone server JAR directly:
+```bash
+java -jar target/jstun-1.0.0-server.jar PORT1 IP1 PORT2 IP2
+```
+Or using the standard library JAR with SLF4J on the classpath:
 ```bash
 java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.StunServer PORT1 IP1 PORT2 IP2
