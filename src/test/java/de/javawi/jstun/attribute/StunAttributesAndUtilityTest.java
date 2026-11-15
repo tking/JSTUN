@@ -211,7 +211,7 @@ public class StunAttributesAndUtilityTest {
 		mh.generateTransactionID();
 
 		AlternateServer as = new AlternateServer();
-		as.setAddress(new Address("2001:db8:0:0:0:0:0:1"));
+		as.setAddress(new Address("2001:db8::1"));
 		as.setPort(3478);
 		mh.addMessageAttribute(as);
 
@@ -221,7 +221,7 @@ public class StunAttributesAndUtilityTest {
 		mh.addMessageAttribute(rf);
 
 		ResponseAddress ra = new ResponseAddress();
-		ra.setAddress(new Address("2001:db8:0:0:0:0:0:2"));
+		ra.setAddress(new Address("2001:db8::2"));
 		ra.setPort(54321);
 		mh.addMessageAttribute(ra);
 
@@ -241,6 +241,7 @@ public class StunAttributesAndUtilityTest {
 
 		AlternateServer parsedAs = (AlternateServer) parsed.getMessageAttribute(MessageAttributeType.AlternateServer);
 		assertEquals(new Address("2001:db8:0:0:0:0:0:1"), parsedAs.getAddress());
+		assertEquals(new Address("2001:db8::1"), parsedAs.getAddress());
 		assertEquals(3478, parsedAs.getPort());
 
 		ReflectedFrom parsedRf = (ReflectedFrom) parsed.getMessageAttribute(MessageAttributeType.ReflectedFrom);
@@ -249,6 +250,7 @@ public class StunAttributesAndUtilityTest {
 
 		ResponseAddress parsedRa = (ResponseAddress) parsed.getMessageAttribute(MessageAttributeType.ResponseAddress);
 		assertEquals(new Address("2001:db8:0:0:0:0:0:2"), parsedRa.getAddress());
+		assertEquals(new Address("2001:db8::2"), parsedRa.getAddress());
 		assertEquals(54321, parsedRa.getPort());
 
 		// Also test legacy 0x8020 XORMAPPEDADDRESS_OPTIONAL parsing

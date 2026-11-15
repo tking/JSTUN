@@ -49,7 +49,8 @@ import de.javawi.jstun.util.UtilityException;
 public class StunServer {
 	private static final Logger LOGGER = LoggerFactory.getLogger(StunServer.class);
 	Vector<DatagramSocket> sockets;
-	private boolean doRun;
+	private final Vector<StunServerReceiverThread> receiverThreads = new Vector<StunServerReceiverThread>();
+	private volatile boolean doRun;
 	
 	public StunServer(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary) throws SocketException {
 		this(primaryPort, primary, secondaryPort, secondary, primaryPort, secondaryPort);
@@ -66,10 +67,12 @@ public class StunServer {
 	
 	public void start() throws SocketException {
 		doRun = true;
+		receiverThreads.clear();
 		for (DatagramSocket socket : sockets) {
 			socket.setReceiveBufferSize(2000);
 			socket.setSoTimeout(500);
 			StunServerReceiverThread ssrt = new StunServerReceiverThread(socket);
+			receiverThreads.add(ssrt);
 			ssrt.start();
 		}
 	}
@@ -88,6 +91,16 @@ public class StunServer {
 				}
 			}
 		}
+		for (StunServerReceiverThread thread : receiverThreads) {
+			long remaining = 7000 - (System.currentTimeMillis() - start);
+			if (remaining > 0) {
+				try {
+					thread.join(remaining);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+			}
+		}
 	}
 
 	/*
@@ -102,6 +115,14 @@ public class StunServer {
 		private DatagramSocket changedPort;
 		private DatagramSocket changedIP;
 		private DatagramSocket changedPortIP;
+		private final InetAddress receiverAddress;
+		private final int receiverPort;
+		private final InetAddress changedPortAddress;
+		private final int changedPortPort;
+		private final InetAddress changedIPAddress;
+		private final int changedIPPort;
+		private final InetAddress changedPortIPAddress;
+		private final int changedPortIPPort;
 		
 		StunServerReceiverThread(DatagramSocket datagramSocket) {
 			this.receiverSocket = datagramSocket;
@@ -111,6 +132,14 @@ public class StunServer {
 				changedIP = sockets.get(idx ^ 2);
 				changedPortIP = sockets.get(idx ^ 3);
 			}
+			this.receiverAddress = receiverSocket.getLocalAddress();
+			this.receiverPort = receiverSocket.getLocalPort();
+			this.changedPortAddress = changedPort.getLocalAddress();
+			this.changedPortPort = changedPort.getLocalPort();
+			this.changedIPAddress = changedIP.getLocalAddress();
+			this.changedIPPort = changedIP.getLocalPort();
+			this.changedPortIPAddress = changedPortIP.getLocalAddress();
+			this.changedPortIPPort = changedPortIP.getLocalPort();
 		}
 		
 		public void run() {
@@ -118,12 +147,12 @@ public class StunServer {
 				try {
 					DatagramPacket receive = new DatagramPacket(new byte[200], 200);
 					receiverSocket.receive(receive);
-					LOGGER.debug(receiverSocket.getLocalAddress().getHostAddress() + ":" + receiverSocket.getLocalPort() + " datagram received from " + receive.getAddress().getHostAddress() + ":" + receive.getPort());
+					LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " datagram received from " + receive.getAddress().getHostAddress() + ":" + receive.getPort());
 					MessageHeader receiveMH = MessageHeader.parseHeader(receive.getData()); 
 					try {
 						receiveMH.parseAttributes(receive.getData());
 						if (receiveMH.getType() == MessageHeaderType.BindingRequest) {
-							LOGGER.debug(receiverSocket.getLocalAddress().getHostAddress() + ":" + receiverSocket.getLocalPort() + " Binding Request received from " + receive.getAddress().getHostAddress() + ":" + receive.getPort());
+							LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " Binding Request received from " + receive.getAddress().getHostAddress() + ":" + receive.getPort());
 							ChangeRequest cr = (ChangeRequest) receiveMH.getMessageAttribute(MessageAttributeType.ChangeRequest);
 							if (cr == null) {
 								cr = new ChangeRequest();
@@ -146,23 +175,23 @@ public class StunServer {
 							sendMH.addMessageAttribute(xma);
 							// Changed address (RFC 3489) and Other address (RFC 5780)
 							ChangedAddress ca = new ChangedAddress();
-							ca.setAddress(new Address(changedPortIP.getLocalAddress().getAddress()));
-							ca.setPort(changedPortIP.getLocalPort());
+							ca.setAddress(new Address(changedPortIPAddress.getAddress()));
+							ca.setPort(changedPortIPPort);
 							sendMH.addMessageAttribute(ca);
 							OtherAddress oa = new OtherAddress();
-							oa.setAddress(new Address(changedPortIP.getLocalAddress().getAddress()));
-							oa.setPort(changedPortIP.getLocalPort());
+							oa.setAddress(new Address(changedPortIPAddress.getAddress()));
+							oa.setPort(changedPortIPPort);
 							sendMH.addMessageAttribute(oa);
 							if (cr.isChangePort() && (!cr.isChangeIP())) {
 								LOGGER.debug("Change port received in Change Request attribute");
 								// Source address / Response origin attribute
 								SourceAddress sa = new SourceAddress();
-								sa.setAddress(new Address(changedPort.getLocalAddress().getAddress()));
-								sa.setPort(changedPort.getLocalPort());
+								sa.setAddress(new Address(changedPortAddress.getAddress()));
+								sa.setPort(changedPortPort);
 								sendMH.addMessageAttribute(sa);
 								ResponseOrigin ro = new ResponseOrigin();
-								ro.setAddress(new Address(changedPort.getLocalAddress().getAddress()));
-								ro.setPort(changedPort.getLocalPort());
+								ro.setAddress(new Address(changedPortAddress.getAddress()));
+								ro.setPort(changedPortPort);
 								sendMH.addMessageAttribute(ro);
 								byte[] data = sendMH.getBytes();
 								DatagramPacket send = new DatagramPacket(data, data.length);
@@ -174,17 +203,17 @@ public class StunServer {
 									send.setAddress(receive.getAddress());
 								}
 								changedPort.send(send);
-								LOGGER.debug(changedPort.getLocalAddress().getHostAddress() + ":" + changedPort.getLocalPort() + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+								LOGGER.debug(changedPortAddress.getHostAddress() + ":" + changedPortPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
 							} else if ((!cr.isChangePort()) && cr.isChangeIP()) {
 								LOGGER.debug("Change ip received in Change Request attribute");
 								// Source address / Response origin attribute
 								SourceAddress sa = new SourceAddress();
-								sa.setAddress(new Address(changedIP.getLocalAddress().getAddress()));
-								sa.setPort(changedIP.getLocalPort());
+								sa.setAddress(new Address(changedIPAddress.getAddress()));
+								sa.setPort(changedIPPort);
 								sendMH.addMessageAttribute(sa);
 								ResponseOrigin ro = new ResponseOrigin();
-								ro.setAddress(new Address(changedIP.getLocalAddress().getAddress()));
-								ro.setPort(changedIP.getLocalPort());
+								ro.setAddress(new Address(changedIPAddress.getAddress()));
+								ro.setPort(changedIPPort);
 								sendMH.addMessageAttribute(ro);
 								byte[] data = sendMH.getBytes();
 								DatagramPacket send = new DatagramPacket(data, data.length);
@@ -196,17 +225,17 @@ public class StunServer {
 									send.setAddress(receive.getAddress());
 								}
 								changedIP.send(send);
-								LOGGER.debug(changedIP.getLocalAddress().getHostAddress() + ":" + changedIP.getLocalPort() + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+								LOGGER.debug(changedIPAddress.getHostAddress() + ":" + changedIPPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
 							} else if ((!cr.isChangePort()) && (!cr.isChangeIP())) {
 								LOGGER.debug("Nothing received in Change Request attribute");
 								// Source address / Response origin attribute
 								SourceAddress sa = new SourceAddress();
-								sa.setAddress(new Address(receiverSocket.getLocalAddress().getAddress()));
-								sa.setPort(receiverSocket.getLocalPort());
+								sa.setAddress(new Address(receiverAddress.getAddress()));
+								sa.setPort(receiverPort);
 								sendMH.addMessageAttribute(sa);
 								ResponseOrigin ro = new ResponseOrigin();
-								ro.setAddress(new Address(receiverSocket.getLocalAddress().getAddress()));
-								ro.setPort(receiverSocket.getLocalPort());
+								ro.setAddress(new Address(receiverAddress.getAddress()));
+								ro.setPort(receiverPort);
 								sendMH.addMessageAttribute(ro);
 								byte[] data = sendMH.getBytes();
 								DatagramPacket send = new DatagramPacket(data, data.length);
@@ -218,17 +247,17 @@ public class StunServer {
 									send.setAddress(receive.getAddress());
 								}
 								receiverSocket.send(send);
-								LOGGER.debug(receiverSocket.getLocalAddress().getHostAddress() + ":" + receiverSocket.getLocalPort() + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+								LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
 							} else if (cr.isChangePort() && cr.isChangeIP()) {
 								LOGGER.debug("Change port and ip received in Change Request attribute");
 								// Source address / Response origin attribute
 								SourceAddress sa = new SourceAddress();
-								sa.setAddress(new Address(changedPortIP.getLocalAddress().getAddress()));
-								sa.setPort(changedPortIP.getLocalPort());
+								sa.setAddress(new Address(changedPortIPAddress.getAddress()));
+								sa.setPort(changedPortIPPort);
 								sendMH.addMessageAttribute(sa);
 								ResponseOrigin ro = new ResponseOrigin();
-								ro.setAddress(new Address(changedPortIP.getLocalAddress().getAddress()));
-								ro.setPort(changedPortIP.getLocalPort());
+								ro.setAddress(new Address(changedPortIPAddress.getAddress()));
+								ro.setPort(changedPortIPPort);
 								sendMH.addMessageAttribute(ro);
 								byte[] data = sendMH.getBytes();
 								DatagramPacket send = new DatagramPacket(data, data.length);
@@ -240,11 +269,11 @@ public class StunServer {
 									send.setAddress(receive.getAddress());
 								}
 								changedPortIP.send(send);
-								LOGGER.debug(changedPortIP.getLocalAddress().getHostAddress() + ":" + changedPortIP.getLocalPort() + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+								LOGGER.debug(changedPortIPAddress.getHostAddress() + ":" + changedPortIPPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
 							}
 						}
 					} catch (UnknownMessageAttributeException umae) {
-						umae.printStackTrace();
+						LOGGER.debug("Unknown mandatory message attribute: {}", umae.getType());
 						// Generate Binding error response
 						MessageHeader sendMH = new MessageHeader(MessageHeaderType.BindingErrorResponse);
 						sendMH.setTransactionID(receiveMH.getTransactionID());
@@ -259,7 +288,7 @@ public class StunServer {
 						send.setPort(receive.getPort());
 						send.setAddress(receive.getAddress());
 						receiverSocket.send(send);
-						LOGGER.debug(changedPortIP.getLocalAddress().getHostAddress() + ":" + changedPortIP.getLocalPort() + " send Binding Error Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+						LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " send Binding Error Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
 					}
 				} catch (SocketTimeoutException ioe) {
 					// No data for SO_TIMEOUT milliseconds.
