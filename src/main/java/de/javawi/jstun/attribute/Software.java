@@ -16,11 +16,21 @@ import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.javawi.jstun.util.JstunVersion;
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
+/**
+ * SOFTWARE attribute (0x8022) as defined in RFC 5389 §15.10 / RFC 8489 §14.14.
+ * <p>
+ * The value is a UTF-8 encoded textual description of the software being used by
+ * the agent sending the message, which SHOULD include manufacturer and version
+ * number. It MUST be fewer than 128 characters.
+ */
 public class Software extends MessageAttribute {
 	private static final Logger LOGGER = LoggerFactory.getLogger(Software.class);
+	/** RFC 5389 §15.10: the value MUST be fewer than 128 characters. */
+	public static final int MAX_CHARACTERS = 127;
 	private String software = "";
 
 	public Software() {
@@ -32,12 +42,24 @@ public class Software extends MessageAttribute {
 		setSoftware(software);
 	}
 
+	/**
+	 * Creates the SOFTWARE attribute identifying JSTUN, e.g.
+	 * {@code JSTUN/1.0.1 (https://github.com/tking/JSTUN)}.
+	 */
+	public static Software jstun() {
+		return new Software(JstunVersion.SOFTWARE);
+	}
+
 	public String getSoftware() {
 		return software;
 	}
 
 	public void setSoftware(String software) {
-		this.software = (software != null) ? software : "";
+		String value = (software != null) ? software : "";
+		if (value.codePointCount(0, value.length()) > MAX_CHARACTERS) {
+			throw new IllegalArgumentException("SOFTWARE attribute must be fewer than 128 characters (RFC 5389 Section 15.10)");
+		}
+		this.software = value;
 	}
 
 	@Override
@@ -61,7 +83,8 @@ public class Software extends MessageAttribute {
 		while (end > 0 && data[end - 1] == 0) {
 			end--;
 		}
-		result.setSoftware(new String(data, 0, end, StandardCharsets.UTF_8));
+		// Be lenient when parsing values received from remote agents.
+		result.software = new String(data, 0, end, StandardCharsets.UTF_8);
 		LOGGER.debug("Message Attribute: Software parsed: {}.", result.getSoftware());
 		return result;
 	}

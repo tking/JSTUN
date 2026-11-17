@@ -31,6 +31,7 @@ import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
 import de.javawi.jstun.attribute.OtherAddress;
+import de.javawi.jstun.attribute.Software;
 import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.header.MessageHeader;
 import de.javawi.jstun.header.MessageHeaderParsingException;
@@ -141,6 +142,7 @@ public class DiscoveryTest {
 
 		ChangeRequest changeRequest = new ChangeRequest();
 		sendMH.addMessageAttribute(changeRequest);
+		sendMH.addMessageAttribute(Software.jstun());
 
 		byte[] data = sendMH.getBytes();
 
@@ -219,6 +221,7 @@ public class DiscoveryTest {
 		changeRequest.setChangeIP();
 		changeRequest.setChangePort();
 		sendMH.addMessageAttribute(changeRequest);
+		sendMH.addMessageAttribute(Software.jstun());
 
 		byte[] data = sendMH.getBytes();
 
@@ -291,6 +294,7 @@ public class DiscoveryTest {
 
 		ChangeRequest changeRequest = new ChangeRequest();
 		sendMH.addMessageAttribute(changeRequest);
+		sendMH.addMessageAttribute(Software.jstun());
 
 		byte[] data = sendMH.getBytes();
 
@@ -362,6 +366,7 @@ public class DiscoveryTest {
 		ChangeRequest changeRequest = new ChangeRequest();
 		changeRequest.setChangePort();
 		sendMH.addMessageAttribute(changeRequest);
+		sendMH.addMessageAttribute(Software.jstun());
 
 		byte[] data = sendMH.getBytes();
 

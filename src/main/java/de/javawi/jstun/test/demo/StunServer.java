@@ -31,6 +31,7 @@ import de.javawi.jstun.attribute.OtherAddress;
 import de.javawi.jstun.attribute.ResponseAddress;
 import de.javawi.jstun.attribute.ResponseOrigin;
 import de.javawi.jstun.attribute.ResponsePort;
+import de.javawi.jstun.attribute.Software;
 import de.javawi.jstun.attribute.SourceAddress;
 import de.javawi.jstun.attribute.UnknownAttribute;
 import de.javawi.jstun.attribute.UnknownMessageAttributeException;
@@ -40,6 +41,7 @@ import de.javawi.jstun.header.MessageHeader;
 import de.javawi.jstun.header.MessageHeaderParsingException;
 import de.javawi.jstun.header.MessageHeaderInterface.MessageHeaderType;
 import de.javawi.jstun.util.Address;
+import de.javawi.jstun.util.JstunVersion;
 import de.javawi.jstun.util.UtilityException;
 
 /*
@@ -139,6 +141,8 @@ public class StunServer {
 		private final ResponseOrigin roIP;
 		private final SourceAddress saPortIP;
 		private final ResponseOrigin roPortIP;
+		// RFC 5389 Section 15.10: identify the server software in all responses.
+		private final Software software = Software.jstun();
 
 		StunServerReceiverThread(DatagramSocket datagramSocket) {
 			this.receiverSocket = datagramSocket;
@@ -241,6 +245,7 @@ public class StunServer {
 							// Changed address (RFC 3489) and Other address (RFC 5780)
 							sendMH.addMessageAttribute(ca);
 							sendMH.addMessageAttribute(oa);
+							sendMH.addMessageAttribute(software);
 
 							if (cr.isChangePort() && (!cr.isChangeIP())) {
 								LOGGER.debug("Change port received in Change Request attribute");
@@ -319,6 +324,7 @@ public class StunServer {
 						UnknownAttribute ua = new UnknownAttribute();
 						ua.addAttribute(umae.getType());
 						sendMH.addMessageAttribute(ua);
+						sendMH.addMessageAttribute(software);
 						
 						byte[] data = sendMH.getBytes();
 						DatagramPacket send = new DatagramPacket(data, data.length);
@@ -372,6 +378,7 @@ public class StunServer {
 			java.util.logging.Logger.getLogger("de.javawi.jstun").setLevel(Level.ALL);
 			StunServer ss = new StunServer(Integer.parseInt(args[0]), InetAddress.getByName(args[1]),
 										   Integer.parseInt(args[2]), InetAddress.getByName(args[3]));
+			LOGGER.info("Starting {}", JstunVersion.SOFTWARE);
 			ss.start();
 		} catch (SocketException se) {
 			LOGGER.error("SocketException while starting STUN server: {}", se.getMessage(), se);

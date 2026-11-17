@@ -32,6 +32,7 @@ import de.javawi.jstun.attribute.OtherAddress;
 import de.javawi.jstun.attribute.ResponseAddress;
 import de.javawi.jstun.attribute.ResponseOrigin;
 import de.javawi.jstun.attribute.ResponsePort;
+import de.javawi.jstun.attribute.Software;
 import de.javawi.jstun.attribute.SourceAddress;
 import de.javawi.jstun.attribute.UnknownAttribute;
 import de.javawi.jstun.attribute.XorMappedAddress;
@@ -39,6 +40,7 @@ import de.javawi.jstun.header.MessageHeader;
 import de.javawi.jstun.header.MessageHeaderInterface.MessageHeaderType;
 import de.javawi.jstun.test.demo.StunServer;
 import de.javawi.jstun.util.Address;
+import de.javawi.jstun.util.JstunVersion;
 
 /**
  * Tests the RFC 3489 Section 10.2 UDP Binding Lifetime binary search algorithm
@@ -194,6 +196,12 @@ public class BindingLifetimeAndStunServerTest {
 			OtherAddress oa1 = (OtherAddress) resp1.getMessageAttribute(MessageAttributeType.OtherAddress);
 			SourceAddress sa1 = (SourceAddress) resp1.getMessageAttribute(MessageAttributeType.SourceAddress);
 			ResponseOrigin ro1 = (ResponseOrigin) resp1.getMessageAttribute(MessageAttributeType.ResponseOrigin);
+
+			// RFC 5389 Section 15.10: server identifies itself via SOFTWARE attribute
+			Software sw1 = (Software) resp1.getMessageAttribute(MessageAttributeType.Software);
+			assertNotNull(sw1);
+			assertEquals(JstunVersion.SOFTWARE, sw1.getSoftware());
+			assertTrue(sw1.getSoftware().startsWith("JSTUN/"));
 
 			assertNotNull(ma1);
 			assertNotNull(xma1);
