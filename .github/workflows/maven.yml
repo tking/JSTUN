@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "master", "main" ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
 
@@ -35,3 +38,28 @@ jobs:
       with:
         name: jacoco-coverage-report
         path: target/site/jacoco/
+    - name: Generate JaCoCo coverage badge
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      uses: cicirello/jacoco-badge-generator@v2
+      with:
+        jacoco-csv-file: target/site/jacoco/jacoco.csv
+        badges-directory: ${{ runner.temp }}/badges-out
+        coverage-badge-filename: jacoco.svg
+    - name: Publish JaCoCo badge to badges branch
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        if git ls-remote --exit-code --heads origin badges >/dev/null 2>&1; then
+          git fetch origin badges
+          git checkout -B badges origin/badges
+        else
+          git checkout --orphan badges
+          git rm -rf . >/dev/null 2>&1 || true
+        fi
+        cp "${{ runner.temp }}/badges-out/jacoco.svg" jacoco.svg
+        git add jacoco.svg
+        if ! git diff --cached --quiet; then
+          git commit -m "chore: update JaCoCo coverage badge"
+          git push origin badges
+        fi
