@@ -31,6 +31,7 @@ import de.javawi.jstun.attribute.Fingerprint;
 import de.javawi.jstun.attribute.MappedAddress;
 import de.javawi.jstun.attribute.MessageAttributeInterface.MessageAttributeType;
 import de.javawi.jstun.attribute.OtherAddress;
+import de.javawi.jstun.attribute.Padding;
 import de.javawi.jstun.attribute.ResponseAddress;
 import de.javawi.jstun.attribute.ResponseOrigin;
 import de.javawi.jstun.attribute.ResponsePort;
@@ -331,6 +332,26 @@ public class BindingLifetimeAndStunServerTest {
 			DatagramPacket recv8 = new DatagramPacket(new byte[512], 512);
 			org.junit.jupiter.api.Assertions.assertThrows(SocketTimeoutException.class,
 					() -> clientSocket.receive(recv8));
+
+			// 9. Jumbo frame BindingRequest with PADDING (~3000 bytes) -> server echoes PADDING
+			clientSocket.setSoTimeout(1000);
+			MessageHeader req9 = new MessageHeader(MessageHeaderType.BindingRequest);
+			req9.generateTransactionID();
+			req9.addMessageAttribute(new Padding(2900));
+			byte[] req9Bytes = req9.getBytesWithFingerprint();
+			assertTrue(req9Bytes.length > 2900);
+			clientSocket.send(new DatagramPacket(req9Bytes, req9Bytes.length, loopback, ports[0]));
+
+			DatagramPacket recv9 = new DatagramPacket(new byte[10240], 10240);
+			clientSocket.receive(recv9);
+			byte[] resp9Raw = new byte[recv9.getLength()];
+			System.arraycopy(recv9.getData(), 0, resp9Raw, 0, resp9Raw.length);
+			assertTrue(Fingerprint.verify(resp9Raw));
+			MessageHeader resp9 = MessageHeader.parseHeader(resp9Raw);
+			resp9.parseAttributes(resp9Raw);
+			assertEquals(MessageHeaderType.BindingResponse, resp9.getType());
+			assertNotNull(resp9.getMessageAttribute(MessageAttributeType.Padding));
+			assertTrue(resp9Raw.length >= 2900 && resp9Raw.length <= req9Bytes.length);
 		} finally {
 			server.stop();
 		}

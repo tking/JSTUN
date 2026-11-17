@@ -30,6 +30,7 @@ import de.javawi.jstun.attribute.MappedAddress;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
 import de.javawi.jstun.attribute.OtherAddress;
+import de.javawi.jstun.attribute.Padding;
 import de.javawi.jstun.attribute.ResponseAddress;
 import de.javawi.jstun.attribute.ResponseOrigin;
 import de.javawi.jstun.attribute.ResponsePort;
@@ -52,6 +53,9 @@ import de.javawi.jstun.util.UtilityException;
  */
 public class StunServer {
 	private static final Logger LOGGER = LoggerFactory.getLogger(StunServer.class);
+	/** Receive buffer sized for jumbo frames (9000-byte MTU + headers). */
+	private static final int RECEIVE_BUFFER_SIZE = 10240;
+	private static final int MAX_ECHO_PACKET_SIZE = 9216;
 	Vector<DatagramSocket> sockets;
 	private final Vector<StunServerReceiverThread> receiverThreads = new Vector<StunServerReceiverThread>();
 	private volatile boolean doRun;
@@ -205,7 +209,7 @@ public class StunServer {
 		}
 		
 		public void run() {
-			byte[] receiveBuffer = new byte[2048];
+			byte[] receiveBuffer = new byte[RECEIVE_BUFFER_SIZE];
 			DatagramPacket receive = new DatagramPacket(receiveBuffer, receiveBuffer.length);
 			while (doRun) {
 				try {
@@ -255,71 +259,62 @@ public class StunServer {
 							sendMH.addMessageAttribute(oa);
 							sendMH.addMessageAttribute(software);
 
+							final DatagramSocket sendSocket;
+							final InetAddress sendAddr;
+							final int sendPort;
 							if (cr.isChangePort() && (!cr.isChangeIP())) {
 								LOGGER.debug("Change port received in Change Request attribute");
-								// Source address / Response origin attribute
 								sendMH.addMessageAttribute(saPort);
 								sendMH.addMessageAttribute(roPort);
-								byte[] data = sendMH.getBytesWithFingerprint();
-								DatagramPacket send = new DatagramPacket(data, data.length);
-								if (ra != null) {
-									send.setPort(ra.getPort());
-									send.setAddress(ra.getAddress().getInetAddress());
-								} else {
-									send.setPort(targetPort);
-									send.setAddress(receive.getAddress());
-								}
-								changedPort.send(send);
-								LOGGER.debug(changedPortAddress.getHostAddress() + ":" + changedPortPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+								sendSocket = changedPort;
+								sendAddr = changedPortAddress;
+								sendPort = changedPortPort;
 							} else if ((!cr.isChangePort()) && cr.isChangeIP()) {
 								LOGGER.debug("Change ip received in Change Request attribute");
-								// Source address / Response origin attribute
 								sendMH.addMessageAttribute(saIP);
 								sendMH.addMessageAttribute(roIP);
-								byte[] data = sendMH.getBytesWithFingerprint();
-								DatagramPacket send = new DatagramPacket(data, data.length);
-								if (ra != null) {
-									send.setPort(ra.getPort());
-									send.setAddress(ra.getAddress().getInetAddress());
-								} else {
-									send.setPort(targetPort);
-									send.setAddress(receive.getAddress());
-								}
-								changedIP.send(send);
-								LOGGER.debug(changedIPAddress.getHostAddress() + ":" + changedIPPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+								sendSocket = changedIP;
+								sendAddr = changedIPAddress;
+								sendPort = changedIPPort;
 							} else if ((!cr.isChangePort()) && (!cr.isChangeIP())) {
 								LOGGER.debug("Nothing received in Change Request attribute");
-								// Source address / Response origin attribute
 								sendMH.addMessageAttribute(saNone);
 								sendMH.addMessageAttribute(roNone);
-								byte[] data = sendMH.getBytesWithFingerprint();
-								DatagramPacket send = new DatagramPacket(data, data.length);
-								if (ra != null) {
-									send.setPort(ra.getPort());
-									send.setAddress(ra.getAddress().getInetAddress());
-								} else {
-									send.setPort(targetPort);
-									send.setAddress(receive.getAddress());
-								}
-								receiverSocket.send(send);
-								LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
-							} else if (cr.isChangePort() && cr.isChangeIP()) {
+								sendSocket = receiverSocket;
+								sendAddr = receiverAddress;
+								sendPort = receiverPort;
+							} else {
 								LOGGER.debug("Change port and ip received in Change Request attribute");
-								// Source address / Response origin attribute
 								sendMH.addMessageAttribute(saPortIP);
 								sendMH.addMessageAttribute(roPortIP);
-								byte[] data = sendMH.getBytesWithFingerprint();
-								DatagramPacket send = new DatagramPacket(data, data.length);
-								if (ra != null) {
-									send.setPort(ra.getPort());
-									send.setAddress(ra.getAddress().getInetAddress());
-								} else {
-									send.setPort(targetPort);
-									send.setAddress(receive.getAddress());
-								}
-								changedPortIP.send(send);
-								LOGGER.debug(changedPortIPAddress.getHostAddress() + ":" + changedPortIPPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+								sendSocket = changedPortIP;
+								sendAddr = changedPortIPAddress;
+								sendPort = changedPortIPPort;
 							}
+
+							Padding reqPadding = (Padding) receiveMH.getMessageAttribute(MessageAttributeType.Padding);
+							if (reqPadding != null) {
+								// RFC 5780 §4.6: echo PADDING up to the incoming request size (capped, zero amplification)
+								int baseLenWithFingerprint = sendMH.getBytesWithFingerprint().length;
+								int targetSize = Math.min(packetData.length, MAX_ECHO_PACKET_SIZE);
+								int rawEchoPad = targetSize - baseLenWithFingerprint - 4;
+								if (rawEchoPad >= 0) {
+									int alignedPad = (rawEchoPad / 4) * 4;
+									sendMH.addMessageAttribute(new Padding(alignedPad));
+								}
+							}
+
+							byte[] data = sendMH.getBytesWithFingerprint();
+							DatagramPacket send = new DatagramPacket(data, data.length);
+							if (ra != null) {
+								send.setPort(ra.getPort());
+								send.setAddress(ra.getAddress().getInetAddress());
+							} else {
+								send.setPort(targetPort);
+								send.setAddress(receive.getAddress());
+							}
+							sendSocket.send(send);
+							LOGGER.debug(sendAddr.getHostAddress() + ":" + sendPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
 						}
 					} catch (UnknownMessageAttributeException umae) {
 						LOGGER.warn("Unknown mandatory message attribute {} received from {}:{}; sending Binding Error Response.",

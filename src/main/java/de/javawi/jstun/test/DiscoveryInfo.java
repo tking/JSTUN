@@ -46,6 +46,7 @@ public class DiscoveryInfo {
 	private int publicPort = -1;
 	private MappingBehavior mappingBehavior = MappingBehavior.UNKNOWN;
 	private FilteringBehavior filteringBehavior = FilteringBehavior.UNKNOWN;
+	private int discoveredMtu = -1;
 	
 	public DiscoveryInfo(InetAddress testIP) {
 		this.testIP = testIP;
@@ -161,6 +162,15 @@ public class DiscoveryInfo {
 	public void setFilteringBehavior(FilteringBehavior filteringBehavior) {
 		this.filteringBehavior = (filteringBehavior != null) ? filteringBehavior : FilteringBehavior.UNKNOWN;
 	}
+
+	public int getDiscoveredMtu() {
+		if (error) return -1;
+		return discoveredMtu;
+	}
+
+	public void setDiscoveredMtu(int discoveredMtu) {
+		this.discoveredMtu = discoveredMtu;
+	}
 	
 	public String toString() {
 		StringBuffer sb = new StringBuffer();
@@ -193,6 +203,9 @@ public class DiscoveryInfo {
 		}
 		if (filteringBehavior != FilteringBehavior.UNKNOWN) {
 			sb.append("RFC 5780 Filtering Behavior: ").append(filteringBehavior.name()).append("\n");
+		}
+		if (discoveredMtu > 0) {
+			sb.append("RFC 5780 Discovered Path MTU: ").append(discoveredMtu).append(" bytes\n");
 		}
 		sb.append("Public IP address: ");
 		if (publicIP != null) {

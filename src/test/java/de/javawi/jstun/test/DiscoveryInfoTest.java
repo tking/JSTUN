@@ -40,6 +40,7 @@ public class DiscoveryInfoTest {
 		assertFalse(di.isSymmetricUDPFirewall());
 		assertEquals(MappingBehavior.UNKNOWN, di.getMappingBehavior());
 		assertEquals(FilteringBehavior.UNKNOWN, di.getFilteringBehavior());
+		assertEquals(-1, di.getDiscoveredMtu());
 
 		String text = di.toString();
 		assertTrue(text.contains("127.0.0.1"));
@@ -118,6 +119,11 @@ public class DiscoveryInfoTest {
 
 		di.setFilteringBehavior(null);
 		assertEquals(FilteringBehavior.UNKNOWN, di.getFilteringBehavior());
+
+		assertEquals(-1, di.getDiscoveredMtu());
+		di.setDiscoveredMtu(9000);
+		assertEquals(9000, di.getDiscoveredMtu());
+		assertTrue(di.toString().contains("RFC 5780 Discovered Path MTU: 9000 bytes"));
 	}
 
 	@Test
@@ -133,6 +139,7 @@ public class DiscoveryInfoTest {
 		di.setSymmetricUDPFirewall();
 		di.setMappingBehavior(MappingBehavior.DIRECT);
 		di.setFilteringBehavior(FilteringBehavior.ENDPOINT_INDEPENDENT);
+		di.setDiscoveredMtu(1500);
 
 		di.setError(500, "Server Error");
 		assertTrue(di.isError());
@@ -145,6 +152,7 @@ public class DiscoveryInfoTest {
 		assertFalse(di.isSymmetricUDPFirewall());
 		assertEquals(MappingBehavior.UNKNOWN, di.getMappingBehavior());
 		assertEquals(FilteringBehavior.UNKNOWN, di.getFilteringBehavior());
+		assertEquals(-1, di.getDiscoveredMtu());
 
 		String text = di.toString();
 		assertTrue(text.contains("Server Error - Responsecode: 500"));
