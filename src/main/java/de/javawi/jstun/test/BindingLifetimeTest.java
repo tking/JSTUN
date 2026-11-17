@@ -31,6 +31,7 @@ import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
 import de.javawi.jstun.attribute.ResponseAddress;
+import de.javawi.jstun.attribute.ResponsePort;
 import de.javawi.jstun.attribute.Software;
 import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.header.MessageHeader;
@@ -45,6 +46,7 @@ public class BindingLifetimeTest {
 	MappedAddress ma;
 	Timer timer;
 	DatagramSocket initialSocket;
+	boolean useResponsePort = false;
 
 	// start value for binary search - should be carefully choosen
 	int upperBinarySearchLifetime = 345000; // ms
@@ -127,6 +129,18 @@ public class BindingLifetimeTest {
 		return completed;
 	}
 
+	/**
+	 * When enabled, uses RFC 5780 §4.5 {@code RESPONSE-PORT} ({@code 0x0027}) instead
+	 * of RFC 3489 {@code RESPONSE-ADDRESS} ({@code 0x0002}) for binding lifetime probes.
+	 */
+	public void setUseResponsePort(boolean useResponsePort) {
+		this.useResponsePort = useResponsePort;
+	}
+
+	public boolean isUseResponsePort() {
+		return useResponsePort;
+	}
+
 	public void setUpperBinarySearchLifetime(int upperBinarySearchLifetime) {
 		this.upperBinarySearchLifetime = upperBinarySearchLifetime;
 		binarySearchLifetime = (upperBinarySearchLifetime + lowerBinarySearchLifetime) / 2;
@@ -168,12 +182,16 @@ public class BindingLifetimeTest {
 				MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
 				sendMH.generateTransactionID();
 				ChangeRequest changeRequest = new ChangeRequest();
-				ResponseAddress responseAddress = new ResponseAddress();
-				responseAddress.setAddress(ma.getAddress());
-				responseAddress.setPort(ma.getPort());
 				sendMH.addMessageAttribute(changeRequest);
 				sendMH.addMessageAttribute(Software.jstun());
-				sendMH.addMessageAttribute(responseAddress);
+				if (useResponsePort) {
+					sendMH.addMessageAttribute(new ResponsePort(ma.getPort()));
+				} else {
+					ResponseAddress responseAddress = new ResponseAddress();
+					responseAddress.setAddress(ma.getAddress());
+					responseAddress.setPort(ma.getPort());
+					sendMH.addMessageAttribute(responseAddress);
+				}
 				byte[] data = sendMH.getBytesWithFingerprint();
 
 				DatagramPacket send = new DatagramPacket(data, data.length, InetAddress.getByName(stunServer), port);

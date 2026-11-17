@@ -13,7 +13,9 @@ package de.javawi.jstun.test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -387,6 +389,109 @@ public class Rfc5780AttributesAndDiscoveryTest {
 		}
 	}
 
+	@Test
+	public void testHairpinningDiscoverySupportedUnsupportedAndBlocked() throws Exception {
+		InetAddress loopback = InetAddress.getByName("127.0.0.1");
+
+		// 1. Hairpinning supported: socketA's mapped port IS socketA's local port on loopback
+		try (SimulatedMtuServer server = new SimulatedMtuServer(1500, false)) {
+			HairpinningDiscoveryTest supportedTest = new HairpinningDiscoveryTest(loopback, "127.0.0.1", server.getPort());
+			supportedTest.setTimeoutInitValue(40);
+			supportedTest.setMaxWaitTimeMs(80);
+			assertEquals(Boolean.TRUE, supportedTest.test());
+		}
+
+		// 2. Hairpinning unsupported: server reports an unreachable external mapped port
+		try (DatagramSocket unreachablePortSocket = new DatagramSocket(0, loopback);
+				SimulatedUnreachableMappedServer noHairpinServer = new SimulatedUnreachableMappedServer(
+						unreachablePortSocket.getLocalPort())) {
+			HairpinningDiscoveryTest unsupportedTest = new HairpinningDiscoveryTest(loopback, 0, "127.0.0.1",
+					noHairpinServer.getPort());
+			unsupportedTest.setTimeoutInitValue(30);
+			unsupportedTest.setMaxWaitTimeMs(50);
+			assertEquals(Boolean.FALSE, unsupportedTest.test());
+		}
+
+		// 3. STUN server unreachable / blocked -> null
+		try (DatagramSocket closedSocket = new DatagramSocket(0, loopback)) {
+			int closedPort = closedSocket.getLocalPort();
+			closedSocket.close();
+			HairpinningDiscoveryTest blockedTest = new HairpinningDiscoveryTest(loopback, "127.0.0.1", closedPort);
+			blockedTest.setTimeoutInitValue(30);
+			blockedTest.setMaxWaitTimeMs(40);
+			assertNull(blockedTest.test());
+		}
+	}
+
+	@Test
+	public void testIpv6NatBehaviorAndMtuDiscovery() throws Exception {
+		InetAddress ipv6Loopback;
+		try {
+			ipv6Loopback = InetAddress.getByName("::1");
+			try (DatagramSocket probe = new DatagramSocket(0, ipv6Loopback)) {
+				// IPv6 loopback is bindable
+			}
+		} catch (Exception e) {
+			assumeTrue(false, "IPv6 loopback ::1 not available in this environment");
+			return;
+		}
+
+		try (SimulatedMtuServer ipv6Server = new SimulatedMtuServer(ipv6Loopback, 1420, false)) {
+			MtuDiscoveryTest mtuTest = new MtuDiscoveryTest(ipv6Loopback, "::1", ipv6Server.getPort());
+			mtuTest.setTimeoutInitValue(25);
+			mtuTest.setMaxWaitTimeMs(40);
+			assertEquals(1420, mtuTest.test(576, 3000));
+		}
+	}
+
+	static class SimulatedUnreachableMappedServer implements AutoCloseable {
+		private final DatagramSocket socket;
+		private final int fakeMappedPort;
+		private final AtomicBoolean running = new AtomicBoolean(true);
+		private final Thread thread;
+
+		SimulatedUnreachableMappedServer(int fakeMappedPort) throws Exception {
+			this.fakeMappedPort = fakeMappedPort;
+			this.socket = new DatagramSocket(0, InetAddress.getByName("127.0.0.1"));
+			this.socket.setSoTimeout(30);
+			this.thread = new Thread(this::serve, "SimUnreachableMapped");
+			this.thread.setDaemon(true);
+			this.thread.start();
+		}
+
+		int getPort() {
+			return socket.getLocalPort();
+		}
+
+		private void serve() {
+			byte[] buf = new byte[512];
+			while (running.get() && !socket.isClosed()) {
+				try {
+					DatagramPacket pkt = new DatagramPacket(buf, buf.length);
+					socket.receive(pkt);
+					MessageHeader req = MessageHeader.parseHeader(pkt.getData());
+					req.parseAttributes(pkt.getData());
+					MessageHeader resp = new MessageHeader(MessageHeaderType.BindingResponse);
+					resp.setTransactionID(req.getTransactionID());
+					XorMappedAddress xma = new XorMappedAddress(req.getTransactionID());
+					xma.setAddress(new Address(pkt.getAddress().getAddress()));
+					xma.setPort(fakeMappedPort);
+					resp.addMessageAttribute(xma);
+					byte[] out = resp.getBytesWithFingerprint();
+					socket.send(new DatagramPacket(out, out.length, pkt.getAddress(), pkt.getPort()));
+				} catch (SocketTimeoutException ignored) {
+				} catch (Exception ignored) {
+				}
+			}
+		}
+
+		@Override
+		public void close() {
+			running.set(false);
+			socket.close();
+		}
+	}
+
 	static class SimulatedMtuServer implements AutoCloseable {
 		private final DatagramSocket socket;
 		private final int maxIpUdpBytes;
@@ -395,9 +500,13 @@ public class Rfc5780AttributesAndDiscoveryTest {
 		private final Thread thread;
 
 		SimulatedMtuServer(int maxIpUdpBytes, boolean rejectPadding) throws Exception {
+			this(InetAddress.getByName("127.0.0.1"), maxIpUdpBytes, rejectPadding);
+		}
+
+		SimulatedMtuServer(InetAddress bindAddress, int maxIpUdpBytes, boolean rejectPadding) throws Exception {
 			this.maxIpUdpBytes = maxIpUdpBytes;
 			this.rejectPadding = rejectPadding;
-			this.socket = new DatagramSocket(0, InetAddress.getByName("127.0.0.1"));
+			this.socket = new DatagramSocket(0, bindAddress);
 			this.socket.setReceiveBufferSize(65536);
 			this.socket.setSendBufferSize(65536);
 			this.socket.setSoTimeout(30);
@@ -416,7 +525,8 @@ public class Rfc5780AttributesAndDiscoveryTest {
 				try {
 					DatagramPacket pkt = new DatagramPacket(buf, buf.length);
 					socket.receive(pkt);
-					if (28 + pkt.getLength() > maxIpUdpBytes) {
+					int overhead = (pkt.getAddress() instanceof java.net.Inet6Address) ? 48 : 28;
+					if (overhead + pkt.getLength() > maxIpUdpBytes) {
 						continue; // simulate path MTU drop
 					}
 					byte[] raw = new byte[pkt.getLength()];
