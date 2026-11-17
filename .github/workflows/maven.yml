@@ -43,11 +43,12 @@ jobs:
       uses: cicirello/jacoco-badge-generator@v2
       with:
         jacoco-csv-file: target/site/jacoco/jacoco.csv
-        badges-directory: ${{ runner.temp }}/badges-out
+        badges-directory: target/badges-out
         coverage-badge-filename: jacoco.svg
     - name: Publish JaCoCo badge to badges branch
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: |
+        cp target/badges-out/jacoco.svg /tmp/jacoco.svg
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         if git ls-remote --exit-code --heads origin badges >/dev/null 2>&1; then
@@ -57,7 +58,7 @@ jobs:
           git checkout --orphan badges
           git rm -rf . >/dev/null 2>&1 || true
         fi
-        cp "${{ runner.temp }}/badges-out/jacoco.svg" jacoco.svg
+        cp /tmp/jacoco.svg jacoco.svg
         git add jacoco.svg
         if ! git diff --cached --quiet; then
           git commit -m "chore: update JaCoCo coverage badge"
