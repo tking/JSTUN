@@ -45,6 +45,13 @@ public class DemosAndServerTest {
 		assertNotNull(demo3Port);
 		demo3Port.run();
 
+		// MtuDiscoveryTestDemo
+		MtuDiscoveryTestDemo demoMtu = new MtuDiscoveryTestDemo(loopback);
+		assertNotNull(demoMtu);
+		MtuDiscoveryTestDemo demoMtuPort = new MtuDiscoveryTestDemo(loopback, 54324);
+		assertNotNull(demoMtuPort);
+		demoMtuPort.run();
+
 		// BindingLifetimeTestDemo
 		BindingLifetimeTestDemo demo4 = new BindingLifetimeTestDemo();
 		assertNotNull(demo4);
