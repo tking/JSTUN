@@ -292,4 +292,27 @@ public class StunAttributesAndUtilityTest {
 		String tooLong = "a".repeat(Software.MAX_CHARACTERS + 1);
 		assertThrows(IllegalArgumentException.class, () -> new Software(tooLong));
 	}
+
+	@Test
+	public void testGetBytesWithFingerprintPlacesFingerprintLast() throws Exception {
+		MessageHeader mh = new MessageHeader(MessageHeaderType.BindingResponse);
+		mh.generateTransactionID();
+		OtherAddress oa = new OtherAddress();
+		oa.setAddress(new Address("192.0.2.1"));
+		oa.setPort(3479);
+		mh.addMessageAttribute(oa);
+		ResponseOrigin ro = new ResponseOrigin();
+		ro.setAddress(new Address("192.0.2.2"));
+		ro.setPort(3478);
+		mh.addMessageAttribute(ro);
+
+		byte[] packet = mh.getBytesWithFingerprint();
+		assertTrue(Fingerprint.verify(packet));
+
+		MessageHeader parsed = MessageHeader.parseHeader(packet);
+		parsed.parseAttributes(packet);
+		assertNotNull(parsed.getMessageAttribute(MessageAttributeType.OtherAddress));
+		assertNotNull(parsed.getMessageAttribute(MessageAttributeType.ResponseOrigin));
+		assertNotNull(parsed.getMessageAttribute(MessageAttributeType.Fingerprint));
+	}
 }

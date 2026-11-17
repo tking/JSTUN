@@ -24,6 +24,8 @@ import org.slf4j.LoggerFactory;
 
 import de.javawi.jstun.attribute.ChangeRequest;
 import de.javawi.jstun.attribute.ChangedAddress;
+import de.javawi.jstun.attribute.ErrorCode;
+import de.javawi.jstun.attribute.Fingerprint;
 import de.javawi.jstun.attribute.MappedAddress;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
@@ -215,6 +217,12 @@ public class StunServer {
 					MessageHeader receiveMH = MessageHeader.parseHeader(packetData); 
 					try {
 						receiveMH.parseAttributes(packetData);
+						if (receiveMH.getMessageAttribute(MessageAttributeType.Fingerprint) != null
+								&& !Fingerprint.verify(packetData)) {
+							LOGGER.warn("Invalid FINGERPRINT attribute in STUN packet from {}:{}; discarding packet.",
+									receive.getAddress().getHostAddress(), receive.getPort());
+							continue;
+						}
 						if (receiveMH.getType() == MessageHeaderType.BindingRequest) {
 							LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " Binding Request received from " + receive.getAddress().getHostAddress() + ":" + receive.getPort());
 							ChangeRequest cr = (ChangeRequest) receiveMH.getMessageAttribute(MessageAttributeType.ChangeRequest);
@@ -252,7 +260,7 @@ public class StunServer {
 								// Source address / Response origin attribute
 								sendMH.addMessageAttribute(saPort);
 								sendMH.addMessageAttribute(roPort);
-								byte[] data = sendMH.getBytes();
+								byte[] data = sendMH.getBytesWithFingerprint();
 								DatagramPacket send = new DatagramPacket(data, data.length);
 								if (ra != null) {
 									send.setPort(ra.getPort());
@@ -268,7 +276,7 @@ public class StunServer {
 								// Source address / Response origin attribute
 								sendMH.addMessageAttribute(saIP);
 								sendMH.addMessageAttribute(roIP);
-								byte[] data = sendMH.getBytes();
+								byte[] data = sendMH.getBytesWithFingerprint();
 								DatagramPacket send = new DatagramPacket(data, data.length);
 								if (ra != null) {
 									send.setPort(ra.getPort());
@@ -284,7 +292,7 @@ public class StunServer {
 								// Source address / Response origin attribute
 								sendMH.addMessageAttribute(saNone);
 								sendMH.addMessageAttribute(roNone);
-								byte[] data = sendMH.getBytes();
+								byte[] data = sendMH.getBytesWithFingerprint();
 								DatagramPacket send = new DatagramPacket(data, data.length);
 								if (ra != null) {
 									send.setPort(ra.getPort());
@@ -300,7 +308,7 @@ public class StunServer {
 								// Source address / Response origin attribute
 								sendMH.addMessageAttribute(saPortIP);
 								sendMH.addMessageAttribute(roPortIP);
-								byte[] data = sendMH.getBytes();
+								byte[] data = sendMH.getBytesWithFingerprint();
 								DatagramPacket send = new DatagramPacket(data, data.length);
 								if (ra != null) {
 									send.setPort(ra.getPort());
@@ -320,13 +328,18 @@ public class StunServer {
 						MessageHeader sendMH = new MessageHeader(MessageHeaderType.BindingErrorResponse);
 						sendMH.setTransactionID(receiveMH.getTransactionID());
 						
+						// Error code 420 (Unknown Attribute) per RFC 3489 §11.2.9 / RFC 5389 §7.3.1
+						ErrorCode ec = new ErrorCode();
+						ec.setResponseCode(420);
+						sendMH.addMessageAttribute(ec);
+
 						// Unknown attributes
 						UnknownAttribute ua = new UnknownAttribute();
 						ua.addAttribute(umae.getType());
 						sendMH.addMessageAttribute(ua);
 						sendMH.addMessageAttribute(software);
 						
-						byte[] data = sendMH.getBytes();
+						byte[] data = sendMH.getBytesWithFingerprint();
 						DatagramPacket send = new DatagramPacket(data, data.length);
 						send.setPort(receive.getPort());
 						send.setAddress(receive.getAddress());

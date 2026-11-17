@@ -241,7 +241,7 @@ public class NatBehaviorDiscoveryTest {
 			sendMH.addMessageAttribute(changeRequest);
 		}
 		sendMH.addMessageAttribute(Software.jstun());
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		while (true) {
 			try {

@@ -26,6 +26,8 @@ import org.junit.jupiter.api.Test;
 
 import de.javawi.jstun.attribute.ChangeRequest;
 import de.javawi.jstun.attribute.ChangedAddress;
+import de.javawi.jstun.attribute.ErrorCode;
+import de.javawi.jstun.attribute.Fingerprint;
 import de.javawi.jstun.attribute.MappedAddress;
 import de.javawi.jstun.attribute.MessageAttributeInterface.MessageAttributeType;
 import de.javawi.jstun.attribute.OtherAddress;
@@ -203,6 +205,12 @@ public class BindingLifetimeAndStunServerTest {
 			assertEquals(JstunVersion.SOFTWARE, sw1.getSoftware());
 			assertTrue(sw1.getSoftware().startsWith("JSTUN/"));
 
+			// RFC 5389 Section 15.5: FINGERPRINT attribute is present and valid as final attribute
+			byte[] resp1Raw = new byte[recv1.getLength()];
+			System.arraycopy(recv1.getData(), 0, resp1Raw, 0, resp1Raw.length);
+			assertTrue(Fingerprint.verify(resp1Raw));
+			assertNotNull(resp1.getMessageAttribute(MessageAttributeType.Fingerprint));
+
 			assertNotNull(ma1);
 			assertNotNull(xma1);
 			assertNotNull(ca1);
@@ -306,6 +314,23 @@ public class BindingLifetimeAndStunServerTest {
 			assertEquals(MessageHeaderType.BindingErrorResponse, resp7.getType());
 			UnknownAttribute ua = (UnknownAttribute) resp7.getMessageAttribute(MessageAttributeType.UnknownAttribute);
 			assertNotNull(ua);
+			ErrorCode ec7 = (ErrorCode) resp7.getMessageAttribute(MessageAttributeType.ErrorCode);
+			assertNotNull(ec7);
+			assertEquals(420, ec7.getResponseCode());
+			byte[] resp7Raw = new byte[recv7.getLength()];
+			System.arraycopy(recv7.getData(), 0, resp7Raw, 0, resp7Raw.length);
+			assertTrue(Fingerprint.verify(resp7Raw));
+
+			// 8. Request with invalid FINGERPRINT -> discarded by server (RFC 5389 §15.5)
+			MessageHeader req8 = new MessageHeader(MessageHeaderType.BindingRequest);
+			req8.generateTransactionID();
+			byte[] req8Bytes = req8.getBytesWithFingerprint();
+			req8Bytes[req8Bytes.length - 1] ^= 0x01; // corrupt fingerprint CRC
+			clientSocket.send(new DatagramPacket(req8Bytes, req8Bytes.length, loopback, ports[0]));
+			clientSocket.setSoTimeout(150);
+			DatagramPacket recv8 = new DatagramPacket(new byte[512], 512);
+			org.junit.jupiter.api.Assertions.assertThrows(SocketTimeoutException.class,
+					() -> clientSocket.receive(recv8));
 		} finally {
 			server.stop();
 		}

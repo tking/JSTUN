@@ -144,7 +144,7 @@ public class DiscoveryTest {
 		sendMH.addMessageAttribute(changeRequest);
 		sendMH.addMessageAttribute(Software.jstun());
 
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		while (true) {
 			try {
@@ -223,7 +223,7 @@ public class DiscoveryTest {
 		sendMH.addMessageAttribute(changeRequest);
 		sendMH.addMessageAttribute(Software.jstun());
 
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		while (true) {
 			try {
@@ -296,7 +296,7 @@ public class DiscoveryTest {
 		sendMH.addMessageAttribute(changeRequest);
 		sendMH.addMessageAttribute(Software.jstun());
 
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		while (true) {
 			// redo test 1 with address and port as offered in the changed-address message
@@ -368,7 +368,7 @@ public class DiscoveryTest {
 		sendMH.addMessageAttribute(changeRequest);
 		sendMH.addMessageAttribute(Software.jstun());
 
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		while (true) {
 			try {

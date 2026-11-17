@@ -84,7 +84,7 @@ public class BindingLifetimeTest {
 		ChangeRequest changeRequest = new ChangeRequest();
 		sendMH.addMessageAttribute(changeRequest);
 		sendMH.addMessageAttribute(Software.jstun());
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		DatagramPacket send = new DatagramPacket(data, data.length, InetAddress.getByName(stunServer), port);
 		initialSocket.send(send);
@@ -174,7 +174,7 @@ public class BindingLifetimeTest {
 				sendMH.addMessageAttribute(changeRequest);
 				sendMH.addMessageAttribute(Software.jstun());
 				sendMH.addMessageAttribute(responseAddress);
-				byte[] data = sendMH.getBytes();
+				byte[] data = sendMH.getBytesWithFingerprint();
 
 				DatagramPacket send = new DatagramPacket(data, data.length, InetAddress.getByName(stunServer), port);
 				socket.send(send);

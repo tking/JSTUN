@@ -18,6 +18,7 @@ import java.util.TreeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.javawi.jstun.attribute.Fingerprint;
 import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
 import de.javawi.jstun.attribute.XorMappedAddress;
@@ -154,6 +155,32 @@ public class MessageHeader implements MessageHeaderInterface {
 	
 	public int getLength() throws UtilityException {
 		return getBytes().length;
+	}
+
+	/**
+	 * Serializes this STUN message and appends an RFC 5389 §15.5 FINGERPRINT
+	 * attribute as the final attribute in the message.
+	 */
+	public byte[] getBytesWithFingerprint() throws UtilityException {
+		MessageAttribute existingFp = ma.remove(MessageAttribute.MessageAttributeType.Fingerprint);
+		try {
+			byte[] prefix = getBytes();
+			long crc = Fingerprint.calculateFingerprint(prefix);
+			byte[] fpBytes = new Fingerprint(crc).getBytes();
+
+			byte[] result = new byte[prefix.length + fpBytes.length];
+			System.arraycopy(prefix, 0, result, 0, prefix.length);
+			System.arraycopy(fpBytes, 0, result, prefix.length, fpBytes.length);
+
+			byte[] totalAttrLen = Utility.integerToTwoBytes(result.length - 20);
+			result[2] = totalAttrLen[0];
+			result[3] = totalAttrLen[1];
+			return result;
+		} finally {
+			if (existingFp != null) {
+				ma.put(MessageAttribute.MessageAttributeType.Fingerprint, existingFp);
+			}
+		}
 	}
 	
 	public void parseAttributes(byte[] data) throws MessageAttributeParsingException {
