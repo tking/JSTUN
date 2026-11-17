@@ -13,10 +13,14 @@ package de.javawi.jstun.attribute;
 
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class Password extends MessageAttribute {
+	private static final Logger LOGGER = LoggerFactory.getLogger(Password.class);
 	String password;
 	
 	public Password() {
@@ -65,6 +69,7 @@ public class Password extends MessageAttribute {
 		}
 		String password = new String(data, 0, end, StandardCharsets.UTF_8);
 		result.setPassword(password);
+		LOGGER.debug("Message Attribute: Password parsed (length={}).", password.length());
 		return result;
 	}
 }

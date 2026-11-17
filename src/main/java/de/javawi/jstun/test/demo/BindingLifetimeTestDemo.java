@@ -16,9 +16,14 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.SimpleFormatter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import de.javawi.jstun.test.BindingLifetimeTest;
 
 public class BindingLifetimeTestDemo {
+	private static final Logger LOGGER = LoggerFactory.getLogger(BindingLifetimeTestDemo.class);
+
 	public static void main(String args[]) {
 		try {
 			Handler fh = new FileHandler("logging.txt");
@@ -34,13 +39,14 @@ public class BindingLifetimeTestDemo {
 			while(continueWhile) {
 				Thread.sleep(5000);
 				if (test.getLifetime() != -1) {
+					LOGGER.info("Lifetime: {} Finished: {}", test.getLifetime(), test.isCompleted());
 					System.out.println("Lifetime: " + test.getLifetime() + " Finished: " + test.isCompleted());
 					if (test.isCompleted()) continueWhile = false;
 				}
 			}
 		} catch (Exception e) {
+			LOGGER.error("Error running BindingLifetimeTestDemo: {}", e.getMessage(), e);
 			System.out.println(e.getMessage());
-			e.printStackTrace();
 		}
 	}
 }

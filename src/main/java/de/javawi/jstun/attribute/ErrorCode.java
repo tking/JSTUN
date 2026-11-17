@@ -13,10 +13,14 @@ package de.javawi.jstun.attribute;
 
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class ErrorCode extends MessageAttribute {
+	private static final Logger LOGGER = LoggerFactory.getLogger(ErrorCode.class);
    /* 
     *  0                   1                   2                   3
     *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -116,6 +120,7 @@ public class ErrorCode extends MessageAttribute {
 					result.setReason(new String(data, 4, reasonEnd - 4, StandardCharsets.UTF_8));
 				}
 			}
+			LOGGER.debug("Message Attribute: Error Code parsed: code={}, reason={}.", result.getResponseCode(), result.getReason());
 			return result;
 		} catch (UtilityException ue) {
 			throw new MessageAttributeParsingException("Parsing error");
