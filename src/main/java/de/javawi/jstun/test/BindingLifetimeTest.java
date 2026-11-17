@@ -31,6 +31,7 @@ import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
 import de.javawi.jstun.attribute.ResponseAddress;
+import de.javawi.jstun.attribute.Software;
 import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.header.MessageHeader;
 import de.javawi.jstun.header.MessageHeaderParsingException;
@@ -82,6 +83,7 @@ public class BindingLifetimeTest {
 		sendMH.generateTransactionID();
 		ChangeRequest changeRequest = new ChangeRequest();
 		sendMH.addMessageAttribute(changeRequest);
+		sendMH.addMessageAttribute(Software.jstun());
 		byte[] data = sendMH.getBytes();
 
 		DatagramPacket send = new DatagramPacket(data, data.length, InetAddress.getByName(stunServer), port);
@@ -170,6 +172,7 @@ public class BindingLifetimeTest {
 				responseAddress.setAddress(ma.getAddress());
 				responseAddress.setPort(ma.getPort());
 				sendMH.addMessageAttribute(changeRequest);
+				sendMH.addMessageAttribute(Software.jstun());
 				sendMH.addMessageAttribute(responseAddress);
 				byte[] data = sendMH.getBytes();
 

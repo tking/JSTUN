@@ -32,6 +32,7 @@ import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
 import de.javawi.jstun.attribute.OtherAddress;
+import de.javawi.jstun.attribute.Software;
 import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.header.MessageHeader;
 import de.javawi.jstun.header.MessageHeaderParsingException;
@@ -239,6 +240,7 @@ public class NatBehaviorDiscoveryTest {
 		if (changeRequest != null) {
 			sendMH.addMessageAttribute(changeRequest);
 		}
+		sendMH.addMessageAttribute(Software.jstun());
 		byte[] data = sendMH.getBytes();
 
 		while (true) {

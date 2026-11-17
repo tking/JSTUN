@@ -278,4 +278,18 @@ public class StunAttributesAndUtilityTest {
 		assertThrows(UtilityException.class, () -> Utility.twoBytesToInteger(new byte[1]));
 		assertThrows(UtilityException.class, () -> Utility.fourBytesToLong(new byte[3]));
 	}
+
+	@Test
+	public void testSoftwareRfc5389Compliance() throws Exception {
+		Software sw = Software.jstun();
+		assertNotNull(sw.getSoftware());
+		assertTrue(sw.getSoftware().startsWith("JSTUN/"));
+		assertTrue(sw.getSoftware().length() <= Software.MAX_CHARACTERS);
+
+		// 127 characters allowed, 128 characters must throw IllegalArgumentException (RFC 5389 §15.10)
+		String maxValid = "a".repeat(Software.MAX_CHARACTERS);
+		assertEquals(maxValid, new Software(maxValid).getSoftware());
+		String tooLong = "a".repeat(Software.MAX_CHARACTERS + 1);
+		assertThrows(IllegalArgumentException.class, () -> new Software(tooLong));
+	}
 }
