@@ -51,7 +51,7 @@ How does it work?
 ```
 
 ### Client Discovery
-To run the classic NAT discovery demo (`DiscoveryTestDemo`), RFC 5780 NAT behavior discovery demo (`NatBehaviorDiscoveryTestDemo`), fast discovery demo (`FastDiscoveryTestDemo`), or UDP binding lifetime discovery demo (`BindingLifetimeTestDemo`):
+To run the classic NAT discovery demo (`DiscoveryTestDemo`), RFC 5780 NAT behavior discovery demo (`NatBehaviorDiscoveryTestDemo`), RFC 5780 Path MTU discovery demo (`MtuDiscoveryTestDemo`), fast discovery demo (`FastDiscoveryTestDemo`), or UDP binding lifetime discovery demo (`BindingLifetimeTestDemo`):
 ```bash
 # Classic RFC 3489 NAT Discovery
 java -cp target/jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
@@ -60,6 +60,10 @@ java -cp target/jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
 # RFC 5780 NAT Mapping & Filtering Behavior Discovery
 java -cp target/jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo
+
+# RFC 5780 UDP Path MTU Discovery (576..9000 bytes, jumbo-frame capable)
+java -cp target/jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+  de.javawi.jstun.test.demo.MtuDiscoveryTestDemo
 
 # UDP Binding Lifetime Discovery
 java -cp target/jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
