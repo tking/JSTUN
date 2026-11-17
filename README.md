@@ -44,7 +44,7 @@ How does it work?
 <dependency>
     <groupId>de.javawi.jstun</groupId>
     <artifactId>jstun</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
@@ -52,18 +52,18 @@ How does it work?
 To run the classic NAT discovery demo (`DiscoveryTestDemo`), RFC 5780 NAT behavior discovery demo (`NatBehaviorDiscoveryTestDemo`), fast discovery demo (`FastDiscoveryTestDemo`), or UDP binding lifetime discovery demo (`BindingLifetimeTestDemo`):
 ```bash
 # Classic RFC 3489 NAT Discovery
-java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp target/jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.DiscoveryTestDemo
 
 # RFC 5780 NAT Mapping & Filtering Behavior Discovery
-java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp target/jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo
 
 # UDP Binding Lifetime Discovery
-java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp target/jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.BindingLifetimeTestDemo
 ```
-*(Or using the standalone shaded JAR without extra classpath entries: `java -cp target/jstun-1.0.0-server.jar de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo`)*
+*(Or using the standalone shaded JAR without extra classpath entries: `java -cp target/jstun-1.0.1-server.jar de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo`)*
 
 You can also use `DiscoveryTest`, `FastDiscoveryTest`, `NatBehaviorDiscoveryTest` (for RFC 5780 Mapping & Filtering behavior), or `BindingLifetimeTest` programmatically:
 ```java
@@ -76,11 +76,11 @@ System.out.println(info);
 ### STUN Server
 A `JSTUN`-based STUN server is included and requires a dual-homed machine (two IP addresses and two ports). You can run the self-contained standalone server JAR directly:
 ```bash
-java -jar target/jstun-1.0.0-server.jar PORT1 IP1 PORT2 IP2
+java -jar target/jstun-1.0.1-server.jar PORT1 IP1 PORT2 IP2
 ```
 Or using the standard library JAR with SLF4J on the classpath:
 ```bash
-java -cp target/jstun-1.0.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp target/jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.StunServer PORT1 IP1 PORT2 IP2
 ```
 
