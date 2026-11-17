@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import de.javawi.jstun.attribute.ChangeRequest;
 import de.javawi.jstun.attribute.ErrorCode;
+import de.javawi.jstun.attribute.MappedAddress;
 import de.javawi.jstun.attribute.MessageAttributeInterface.MessageAttributeType;
 import de.javawi.jstun.attribute.OtherAddress;
 import de.javawi.jstun.attribute.Padding;
@@ -351,5 +352,106 @@ public class Rfc5780AttributesAndDiscoveryTest {
 		assertEquals(MappingBehavior.ADDRESS_AND_PORT_DEPENDENT, addrPortDep.getMappingBehavior());
 		assertEquals(FilteringBehavior.ADDRESS_AND_PORT_DEPENDENT, addrPortDep.getFilteringBehavior());
 		assertTrue(addrPortDep.isSymmetric());
+	}
+
+	@Test
+	public void testMtuProbingConstrainedJumboAndLegacyFallback() throws Exception {
+		InetAddress loopback = InetAddress.getByName("127.0.0.1");
+
+		// 1. Constrained path (e.g. WireGuard 1420-byte MTU)
+		try (SimulatedMtuServer mtu1420 = new SimulatedMtuServer(1420, false)) {
+			NatBehaviorDiscoveryTest test = new NatBehaviorDiscoveryTest(loopback, "127.0.0.1", mtu1420.getPort());
+			test.setTimeoutInitValue(25);
+			test.setMaxWaitTimeMs(40);
+			int discovered = test.discoverMtu(576, 9000);
+			assertEquals(1420, discovered);
+		}
+
+		// 2. Jumbo frame path (9000-byte MTU)
+		try (SimulatedMtuServer mtu9000 = new SimulatedMtuServer(9000, false)) {
+			NatBehaviorDiscoveryTest test = new NatBehaviorDiscoveryTest(loopback, "127.0.0.1", mtu9000.getPort());
+			test.setTimeoutInitValue(50);
+			test.setMaxWaitTimeMs(100);
+			int discovered = test.discoverMtu(576, 9000);
+			assertEquals(9000, discovered);
+		}
+
+		// 3. Legacy RFC 3489 server rejecting PADDING with 420 Unknown Attribute -> -1
+		try (SimulatedMtuServer legacyServer = new SimulatedMtuServer(1500, true)) {
+			NatBehaviorDiscoveryTest test = new NatBehaviorDiscoveryTest(loopback, "127.0.0.1", legacyServer.getPort());
+			test.setTimeoutInitValue(40);
+			test.setMaxWaitTimeMs(80);
+			assertEquals(-1, test.discoverMtu());
+		}
+	}
+
+	static class SimulatedMtuServer implements AutoCloseable {
+		private final DatagramSocket socket;
+		private final int maxIpUdpBytes;
+		private final boolean rejectPadding;
+		private final AtomicBoolean running = new AtomicBoolean(true);
+		private final Thread thread;
+
+		SimulatedMtuServer(int maxIpUdpBytes, boolean rejectPadding) throws Exception {
+			this.maxIpUdpBytes = maxIpUdpBytes;
+			this.rejectPadding = rejectPadding;
+			this.socket = new DatagramSocket(0, InetAddress.getByName("127.0.0.1"));
+			this.socket.setReceiveBufferSize(65536);
+			this.socket.setSendBufferSize(65536);
+			this.socket.setSoTimeout(30);
+			this.thread = new Thread(this::serve, "SimMtuServer-" + maxIpUdpBytes);
+			this.thread.setDaemon(true);
+			this.thread.start();
+		}
+
+		int getPort() {
+			return socket.getLocalPort();
+		}
+
+		private void serve() {
+			byte[] buf = new byte[10240];
+			while (running.get() && !socket.isClosed()) {
+				try {
+					DatagramPacket pkt = new DatagramPacket(buf, buf.length);
+					socket.receive(pkt);
+					if (28 + pkt.getLength() > maxIpUdpBytes) {
+						continue; // simulate path MTU drop
+					}
+					byte[] raw = new byte[pkt.getLength()];
+					System.arraycopy(buf, 0, raw, 0, raw.length);
+					MessageHeader req = MessageHeader.parseHeader(raw);
+					req.parseAttributes(raw);
+					if (rejectPadding && req.getMessageAttribute(MessageAttributeType.Padding) != null) {
+						MessageHeader err = new MessageHeader(MessageHeaderType.BindingErrorResponse);
+						err.setTransactionID(req.getTransactionID());
+						ErrorCode ec = new ErrorCode();
+						ec.setResponseCode(420);
+						err.addMessageAttribute(ec);
+						byte[] out = err.getBytes();
+						socket.send(new DatagramPacket(out, out.length, pkt.getAddress(), pkt.getPort()));
+					} else {
+						MessageHeader resp = new MessageHeader(MessageHeaderType.BindingResponse);
+						resp.setTransactionID(req.getTransactionID());
+						MappedAddress ma = new MappedAddress();
+						ma.setAddress(new Address(pkt.getAddress().getAddress()));
+						ma.setPort(pkt.getPort());
+						resp.addMessageAttribute(ma);
+						byte[] out = resp.getBytesWithFingerprint();
+						socket.send(new DatagramPacket(out, out.length, pkt.getAddress(), pkt.getPort()));
+					}
+				} catch (SocketTimeoutException ignored) {
+				} catch (Exception e) {
+					if (running.get() && !socket.isClosed()) {
+						e.printStackTrace();
+					}
+				}
+			}
+		}
+
+		@Override
+		public void close() {
+			running.set(false);
+			socket.close();
+		}
 	}
 }
