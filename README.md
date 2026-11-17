@@ -1,4 +1,4 @@
-[![Java CI with Maven](https://github.com/tking/JSTUN/actions/workflows/maven.yml/badge.svg)](https://github.com/tking/JSTUN/actions/workflows/maven.yml) [![Maven Central](https://img.shields.io/maven-central/v/de.javawi.jstun/jstun.svg)](https://central.sonatype.com/artifact/de.javawi.jstun/jstun)
+[![Java CI with Maven](https://github.com/tking/JSTUN/actions/workflows/maven.yml/badge.svg)](https://github.com/tking/JSTUN/actions/workflows/maven.yml) [![Coverage](https://raw.githubusercontent.com/tking/JSTUN/badges/jacoco.svg)](https://github.com/tking/JSTUN/actions/workflows/maven.yml) [![Maven Central](https://img.shields.io/maven-central/v/de.javawi.jstun/jstun.svg)](https://central.sonatype.com/artifact/de.javawi.jstun/jstun)
 
 "JSTUN" - Java Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)
 =========================================================================================================
