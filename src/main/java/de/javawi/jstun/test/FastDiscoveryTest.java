@@ -217,7 +217,7 @@ public class FastDiscoveryTest {
 		sendMH.addMessageAttribute(changeRequest);
 		sendMH.addMessageAttribute(Software.jstun());
 
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		while (true) {
 			try {
@@ -291,7 +291,7 @@ public class FastDiscoveryTest {
 		sendMH.addMessageAttribute(changeRequest);
 		sendMH.addMessageAttribute(Software.jstun());
 
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		try (DatagramSocket socket = new DatagramSocket(new InetSocketAddress(sourceIaddress, 0))) {
 			socket.setReuseAddress(true);
@@ -346,7 +346,7 @@ public class FastDiscoveryTest {
 		sendMH.addMessageAttribute(changeRequest);
 		sendMH.addMessageAttribute(Software.jstun());
 
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		while (true) {
 			// redo test 1 with address and port as offered in the changed-address message
@@ -414,7 +414,7 @@ public class FastDiscoveryTest {
 		sendMH.addMessageAttribute(changeRequest);
 		sendMH.addMessageAttribute(Software.jstun());
 
-		byte[] data = sendMH.getBytes();
+		byte[] data = sendMH.getBytesWithFingerprint();
 
 		try (DatagramSocket socket = new DatagramSocket(new InetSocketAddress(sourceIaddress, 0))) {
 			socket.setReuseAddress(true);
