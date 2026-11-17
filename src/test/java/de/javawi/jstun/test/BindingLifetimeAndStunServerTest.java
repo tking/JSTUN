@@ -87,7 +87,8 @@ public class BindingLifetimeAndStunServerTest {
 					}
 
 					ResponseAddress ra = (ResponseAddress) req.getMessageAttribute(MessageAttributeType.ResponseAddress);
-					if (ra == null) {
+					ResponsePort rp = (ResponsePort) req.getMessageAttribute(MessageAttributeType.ResponsePort);
+					if (ra == null && rp == null) {
 						// Initial binding communication on initialSocket
 						MessageHeader resp = new MessageHeader(MessageHeaderType.BindingResponse);
 						resp.setTransactionID(req.getTransactionID());
@@ -98,19 +99,20 @@ public class BindingLifetimeAndStunServerTest {
 						byte[] out = resp.getBytes();
 						socket.send(new DatagramPacket(out, out.length, pkt.getAddress(), pkt.getPort()));
 					} else {
-						// Probe from secondary socket with RESPONSE-ADDRESS pointing to initialSocket
+						// Probe from secondary socket with RESPONSE-ADDRESS or RESPONSE-PORT pointing to initialSocket
 						int probeNum = responseAddressProbeCount.incrementAndGet();
 						// Probe 1 succeeds (raises lower bound), Probe 2 times out (lowers upper bound), Probe 3+ succeeds
 						if (probeNum != 2) {
+							InetAddress targetIp = (ra != null) ? ra.getAddress().getInetAddress() : pkt.getAddress();
+							int targetPort = (ra != null) ? ra.getPort() : rp.getPort();
 							MessageHeader resp = new MessageHeader(MessageHeaderType.BindingResponse);
 							resp.setTransactionID(req.getTransactionID());
 							MappedAddress ma = new MappedAddress();
-							ma.setAddress(ra.getAddress());
-							ma.setPort(ra.getPort());
+							ma.setAddress(new Address(targetIp.getAddress()));
+							ma.setPort(targetPort);
 							resp.addMessageAttribute(ma);
 							byte[] out = resp.getBytes();
-							socket.send(new DatagramPacket(out, out.length,
-									ra.getAddress().getInetAddress(), ra.getPort()));
+							socket.send(new DatagramPacket(out, out.length, targetIp, targetPort));
 						}
 					}
 				} catch (SocketTimeoutException ste) {
@@ -134,6 +136,28 @@ public class BindingLifetimeAndStunServerTest {
 		try (SimulatedLifetimeServer server = new SimulatedLifetimeServer()) {
 			BindingLifetimeTest blt = new BindingLifetimeTest("127.0.0.1", server.getPort());
 			// Use a small upper bound (4 ms -> initial midpoint 2 ms, then 3 ms -> converges)
+			blt.setUpperBinarySearchLifetime(4);
+			blt.setTimeout(30);
+			try {
+				blt.test();
+				long deadline = System.currentTimeMillis() + 3000;
+				while (!blt.isCompleted() && System.currentTimeMillis() < deadline) {
+					Thread.sleep(15);
+				}
+				assertTrue(blt.isCompleted());
+				assertEquals(2, blt.getLifetime());
+			} finally {
+				blt.close();
+			}
+		}
+	}
+
+	@Test
+	public void testBindingLifetimeWithRfc5780ResponsePort() throws Exception {
+		try (SimulatedLifetimeServer server = new SimulatedLifetimeServer()) {
+			BindingLifetimeTest blt = new BindingLifetimeTest("127.0.0.1", server.getPort());
+			blt.setUseResponsePort(true);
+			assertTrue(blt.isUseResponsePort());
 			blt.setUpperBinarySearchLifetime(4);
 			blt.setTimeout(30);
 			try {
