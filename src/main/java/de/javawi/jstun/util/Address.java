@@ -166,7 +166,7 @@ public class Address {
 	}
 	
 	public boolean equals(Object obj) {
-		if (obj == null) return false;
+		if (obj == null || !(obj instanceof Address)) return false;
 		try {
 			byte[] data1 = this.getBytes();
 			byte[] data2 = ((Address) obj).getBytes();

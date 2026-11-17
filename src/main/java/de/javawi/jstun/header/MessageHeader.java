@@ -197,6 +197,9 @@ public class MessageHeader implements MessageHeaderInterface {
 	
 	public static MessageHeader parseHeader(byte[] data) throws MessageHeaderParsingException {
 		try {
+			if (data == null || data.length < 2) {
+				throw new MessageHeaderParsingException("Data array too short");
+			}
 			MessageHeader mh = new MessageHeader();
 			byte[] typeArray = new byte[2];
 			System.arraycopy(data, 0, typeArray, 0, 2);

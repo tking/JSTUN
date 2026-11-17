@@ -30,3 +30,8 @@ jobs:
           !target/*-sources.jar
           !target/*-javadoc.jar
           !target/original-*.jar
+    - name: Upload JaCoCo test coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: jacoco-coverage-report
+        path: target/site/jacoco/
