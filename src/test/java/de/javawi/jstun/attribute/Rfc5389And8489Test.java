@@ -158,6 +158,8 @@ public class Rfc5389And8489Test {
 		// Validation checks
 		assertThrows(MessageAttributeException.class, () -> new MessageIntegritySha256(new byte[16]));
 		assertThrows(MessageAttributeParsingException.class, () -> MessageIntegritySha256.parse(new byte[16]));
+		assertThrows(de.javawi.jstun.util.UtilityException.class,
+				() -> MessageIntegritySha256.computeShortTermHMAC(new byte[10], "secret"));
 		assertThrows(MessageAttributeException.class, () -> new Userhash(new byte[16]));
 		assertThrows(MessageAttributeParsingException.class, () -> Userhash.parse(new byte[16]));
 	}
