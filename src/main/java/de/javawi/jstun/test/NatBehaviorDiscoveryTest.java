@@ -14,7 +14,6 @@ package de.javawi.jstun.test;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
@@ -33,11 +32,9 @@ import de.javawi.jstun.attribute.MessageAttribute;
 import de.javawi.jstun.attribute.MessageAttributeException;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
 import de.javawi.jstun.attribute.OtherAddress;
-import de.javawi.jstun.attribute.Padding;
 import de.javawi.jstun.attribute.Software;
 import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.header.MessageHeader;
-import de.javawi.jstun.header.MessageHeaderInterface.MessageHeaderType;
 import de.javawi.jstun.header.MessageHeaderParsingException;
 import de.javawi.jstun.test.DiscoveryInfo.FilteringBehavior;
 import de.javawi.jstun.test.DiscoveryInfo.MappingBehavior;
@@ -49,11 +46,6 @@ import de.javawi.jstun.util.UtilityException;
  */
 public class NatBehaviorDiscoveryTest {
 	private static final Logger LOGGER = LoggerFactory.getLogger(NatBehaviorDiscoveryTest.class);
-	public static final int DEFAULT_MIN_MTU = 576;
-	/** Default upper bound supports Ethernet jumbo frames (9000-byte MTU). */
-	public static final int DEFAULT_MAX_MTU = 9000;
-	private static final int IPV4_UDP_OVERHEAD = 28;
-	private static final int IPV6_UDP_OVERHEAD = 48;
 	private final InetAddress sourceIaddress;
 	private final int sourcePort;
 	private final String stunServer;
@@ -81,27 +73,6 @@ public class NatBehaviorDiscoveryTest {
 	}
 
 	public DiscoveryInfo test() throws UtilityException, SocketException, UnknownHostException, IOException,
-			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
-		return test(false);
-	}
-
-	/**
-	 * Runs RFC 5780 NAT behavior discovery and optionally performs RFC 5780 §4.6
-	 * MTU probing (supporting up to 9000-byte jumbo frames).
-	 */
-	public DiscoveryInfo test(boolean probeMtu) throws UtilityException, SocketException, UnknownHostException, IOException,
-			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
-		DiscoveryInfo di = runBehaviorDiscovery();
-		if (probeMtu && !di.isBlockedUDP() && !di.isError()) {
-			int mtu = discoverMtu();
-			if (mtu > 0) {
-				di.setDiscoveredMtu(mtu);
-			}
-		}
-		return di;
-	}
-
-	private DiscoveryInfo runBehaviorDiscovery() throws UtilityException, SocketException, UnknownHostException, IOException,
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		DiscoveryInfo di = new DiscoveryInfo(sourceIaddress);
 		InetAddress primaryServerIP = InetAddress.getByName(stunServer);
@@ -258,96 +229,8 @@ public class NatBehaviorDiscoveryTest {
 		return (ChangedAddress) mh.getMessageAttribute(MessageAttribute.MessageAttributeType.ChangedAddress);
 	}
 
-	/**
-	 * Performs RFC 5780 §4.6 UDP Path MTU probing across {@value #DEFAULT_MIN_MTU}..{@value #DEFAULT_MAX_MTU} bytes
-	 * (supporting jumbo frames) using binary search and the PADDING (0x0026) attribute.
-	 *
-	 * @return the largest UDP/IP packet size in bytes that traversed the path, or {@code -1} if unsupported/blocked.
-	 */
-	public int discoverMtu() throws UtilityException, SocketException, UnknownHostException, IOException,
-			MessageAttributeParsingException, MessageHeaderParsingException {
-		return discoverMtu(DEFAULT_MIN_MTU, DEFAULT_MAX_MTU);
-	}
-
-	/**
-	 * Performs RFC 5780 §4.6 UDP Path MTU probing within {@code [minMtu, maxMtu]} bytes
-	 * using binary search and the PADDING (0x0026) attribute.
-	 *
-	 * @return the largest UDP/IP packet size in bytes that traversed the path, or {@code -1} if unsupported/blocked.
-	 */
-	public int discoverMtu(int minMtu, int maxMtu) throws UtilityException, SocketException, UnknownHostException,
-			IOException, MessageAttributeParsingException, MessageHeaderParsingException {
-		if (minMtu <= 0 || maxMtu < minMtu) {
-			throw new IllegalArgumentException("Invalid MTU bounds: minMtu=" + minMtu + ", maxMtu=" + maxMtu);
-		}
-		InetAddress primaryServerIP = InetAddress.getByName(stunServer);
-		int headerOverhead = (primaryServerIP instanceof Inet6Address) ? IPV6_UDP_OVERHEAD : IPV4_UDP_OVERHEAD;
-		int recvBufSize = Math.max(10240, maxMtu + 1024);
-
-		try (DatagramSocket socket = new DatagramSocket(new InetSocketAddress(sourceIaddress, sourcePort))) {
-			socket.setReuseAddress(true);
-			socket.setReceiveBufferSize(Math.max(65536, recvBufSize));
-			socket.setSendBufferSize(Math.max(65536, recvBufSize));
-
-			// Step 1: Capability probe with minimal PADDING (4 bytes) so legacy RFC 3489 servers fail fast with 420.
-			MessageHeader capResp = sendBindingRequest(socket, primaryServerIP, stunServerPort, null, new Padding(4), recvBufSize);
-			if (capResp == null) {
-				LOGGER.warn("RFC 5780 MTU Discovery: no response to capability probe against {}:{}.", stunServer, stunServerPort);
-				return -1;
-			}
-			if (capResp.getType() == MessageHeaderType.BindingErrorResponse
-					|| capResp.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode) != null) {
-				LOGGER.info("RFC 5780 MTU Discovery: server {}:{} rejected PADDING attribute; MTU probing unsupported.",
-						stunServer, stunServerPort);
-				return -1;
-			}
-
-			// Measure base STUN request size (without PADDING)
-			MessageHeader baseReq = new MessageHeader(MessageHeaderType.BindingRequest);
-			baseReq.generateTransactionID();
-			baseReq.addMessageAttribute(Software.jstun());
-			int baseStunLen = baseReq.getBytesWithFingerprint().length;
-
-			// Step 2: Binary search over [minMtu, maxMtu]
-			int low = minMtu;
-			int high = maxMtu;
-			int bestMtu = -1;
-			while (low <= high) {
-				int mid = low + (high - low) / 2;
-				int rawPad = mid - headerOverhead - baseStunLen - 4;
-				int alignedPad = (rawPad > 0) ? (rawPad / 4) * 4 : 0;
-				Padding padding = new Padding(alignedPad);
-				int actualProbeMtu = headerOverhead + baseStunLen + 4 + alignedPad;
-
-				MessageHeader resp = sendBindingRequest(socket, primaryServerIP, stunServerPort, null, padding, recvBufSize);
-				if (resp == null) {
-					LOGGER.debug("RFC 5780 MTU probe {} bytes (target {}) timed out; lowering upper bound.", actualProbeMtu, mid);
-					high = mid - 1;
-				} else if (resp.getType() == MessageHeaderType.BindingErrorResponse
-						|| resp.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode) != null) {
-					LOGGER.info("RFC 5780 MTU probe {} bytes returned STUN error; stopping.", actualProbeMtu);
-					return bestMtu;
-				} else {
-					LOGGER.debug("RFC 5780 MTU probe {} bytes succeeded.", actualProbeMtu);
-					bestMtu = actualProbeMtu;
-					low = mid + 1;
-				}
-			}
-
-			LOGGER.info("RFC 5780 MTU Discovery completed against {}:{}: discoveredMtu={} bytes (range {}..{}).",
-					stunServer, stunServerPort, bestMtu, minMtu, maxMtu);
-			return bestMtu;
-		}
-	}
-
 	private MessageHeader sendBindingRequest(DatagramSocket socket, InetAddress targetIP, int targetPort,
 			ChangeRequest changeRequest)
-			throws UtilityException, IOException, MessageHeaderParsingException, MessageAttributeParsingException {
-		return sendBindingRequest(socket, targetIP, targetPort, changeRequest, null, 512);
-	}
-
-	private MessageHeader sendBindingRequest(DatagramSocket socket, InetAddress targetIP, int targetPort,
-			ChangeRequest changeRequest, Padding padding, int receiveBufferSize)
 			throws UtilityException, IOException, MessageHeaderParsingException, MessageAttributeParsingException {
 		int elapsed = 0;
 		int timeout = timeoutInitValue;
@@ -356,9 +239,6 @@ public class NatBehaviorDiscoveryTest {
 		sendMH.generateTransactionID();
 		if (changeRequest != null) {
 			sendMH.addMessageAttribute(changeRequest);
-		}
-		if (padding != null) {
-			sendMH.addMessageAttribute(padding);
 		}
 		sendMH.addMessageAttribute(Software.jstun());
 		byte[] data = sendMH.getBytesWithFingerprint();
@@ -372,7 +252,7 @@ public class NatBehaviorDiscoveryTest {
 
 				MessageHeader receiveMH = new MessageHeader();
 				while (!receiveMH.equalTransactionID(sendMH)) {
-					DatagramPacket receive = new DatagramPacket(new byte[receiveBufferSize], receiveBufferSize);
+					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
 					socket.receive(receive);
 					receiveMH = MessageHeader.parseHeader(receive.getData());
 					receiveMH.parseAttributes(receive.getData());
