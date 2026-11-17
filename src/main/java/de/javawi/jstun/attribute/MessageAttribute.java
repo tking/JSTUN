@@ -139,10 +139,9 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 			case OTHERADDRESS: ma = OtherAddress.parse(valueArray); break;
 			default:
 				if (type <= 0x7fff) {
-					LOGGER.warn("Unknown comprehension-required MessageAttribute with type 0x{}.", Integer.toHexString(type));
 					throw new UnknownMessageAttributeException("Unkown mandatory message attribute", intToType(type));
 				} else {
-					LOGGER.debug("Unknown comprehension-optional MessageAttribute with type 0x{} ignored.", Integer.toHexString(type));
+					LOGGER.debug("MessageAttribute with type " + type + " unkown.");
 					ma = Dummy.parse(valueArray);
 					break;
 				}

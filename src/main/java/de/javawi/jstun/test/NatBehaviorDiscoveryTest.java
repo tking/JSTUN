@@ -75,8 +75,6 @@ public class NatBehaviorDiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		DiscoveryInfo di = new DiscoveryInfo(sourceIaddress);
 		InetAddress primaryServerIP = InetAddress.getByName(stunServer);
-		LOGGER.debug("Starting RFC 5780 NAT behavior discovery from {}:{} against STUN server {}:{}.",
-				sourceIaddress.getHostAddress(), sourcePort, stunServer, stunServerPort);
 
 		try (DatagramSocket socket = new DatagramSocket(new InetSocketAddress(sourceIaddress, sourcePort))) {
 			socket.setReuseAddress(true);
@@ -84,13 +82,11 @@ public class NatBehaviorDiscoveryTest {
 			// RFC 5780 Section 4.3: Mapping Behavior - Test I
 			MessageHeader response1 = sendBindingRequest(socket, primaryServerIP, stunServerPort, null);
 			if (response1 == null) {
-				LOGGER.debug("RFC 5780 Mapping Test I: No response received. Node is not capable of UDP communication.");
 				di.setBlockedUDP();
 				return di;
 			}
 			ErrorCode ec = (ErrorCode) response1.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
 			if (ec != null) {
-				LOGGER.warn("RFC 5780 Mapping Test I: Server returned error code {} ({}).", ec.getResponseCode(), ec.getReason());
 				di.setError(ec.getResponseCode(), ec.getReason());
 				return di;
 			}
@@ -98,49 +94,38 @@ public class NatBehaviorDiscoveryTest {
 			MappedResponseChangedSourceAddressReflectedFrom ma1 = extractMappedAddress(response1);
 			MappedResponseChangedSourceAddressReflectedFrom oa = extractOtherAddress(response1);
 			if (ma1 == null) {
-				LOGGER.warn("RFC 5780 Mapping Test I: Server response is missing MAPPED-ADDRESS / XOR-MAPPED-ADDRESS.");
 				di.setError(700, "Server response is missing MAPPED-ADDRESS / XOR-MAPPED-ADDRESS.");
 				return di;
 			}
 
 			di.setPublicIP(ma1.getAddress().getInetAddress());
 			di.setPublicPort(ma1.getPort());
-			LOGGER.debug("RFC 5780 Mapping Test I: Mapped public endpoint is {}:{}.",
-					di.getPublicIP().getHostAddress(), di.getPublicPort());
 
 			boolean isDirect = (ma1.getPort() == socket.getLocalPort())
 					&& ma1.getAddress().getInetAddress().equals(socket.getLocalAddress());
 			if (isDirect) {
 				di.setMappingBehavior(MappingBehavior.DIRECT);
-				LOGGER.debug("RFC 5780 Mapping Behavior: DIRECT.");
 			} else if (oa != null) {
 				InetAddress alternateServerIP = oa.getAddress().getInetAddress();
 				int alternateServerPort = oa.getPort();
 
 				// RFC 5780 Section 4.3: Mapping Behavior - Test II (Alternate IP, Primary Port)
-				LOGGER.debug("RFC 5780 Mapping Test II: Sending Binding Request to alternate IP {}:{} (primary port).",
-						alternateServerIP.getHostAddress(), stunServerPort);
 				MessageHeader response2 = sendBindingRequest(socket, alternateServerIP, stunServerPort, null);
 				if (response2 != null) {
 					MappedResponseChangedSourceAddressReflectedFrom ma2 = extractMappedAddress(response2);
 					if (ma2 != null) {
 						if (sameEndpoint(ma1, ma2)) {
 							di.setMappingBehavior(MappingBehavior.ENDPOINT_INDEPENDENT);
-							LOGGER.debug("RFC 5780 Mapping Behavior: ENDPOINT_INDEPENDENT.");
 						} else {
 							// RFC 5780 Section 4.3: Mapping Behavior - Test III (Alternate IP, Alternate Port)
-							LOGGER.debug("RFC 5780 Mapping Test III: Sending Binding Request to alternate IP and alternate port {}:{}.",
-									alternateServerIP.getHostAddress(), alternateServerPort);
 							MessageHeader response3 = sendBindingRequest(socket, alternateServerIP, alternateServerPort, null);
 							if (response3 != null) {
 								MappedResponseChangedSourceAddressReflectedFrom ma3 = extractMappedAddress(response3);
 								if (ma3 != null) {
 									if (sameEndpoint(ma2, ma3)) {
 										di.setMappingBehavior(MappingBehavior.ADDRESS_DEPENDENT);
-										LOGGER.debug("RFC 5780 Mapping Behavior: ADDRESS_DEPENDENT.");
 									} else {
 										di.setMappingBehavior(MappingBehavior.ADDRESS_AND_PORT_DEPENDENT);
-										LOGGER.debug("RFC 5780 Mapping Behavior: ADDRESS_AND_PORT_DEPENDENT.");
 									}
 								}
 							}
@@ -154,31 +139,24 @@ public class NatBehaviorDiscoveryTest {
 				ChangeRequest crBoth = new ChangeRequest();
 				crBoth.setChangeIP();
 				crBoth.setChangePort();
-				LOGGER.debug("RFC 5780 Filtering Test II: Sending Binding Request with changeIP=true, changePort=true.");
 				MessageHeader filterResp2 = sendBindingRequest(socket, primaryServerIP, stunServerPort, crBoth);
 				if (filterResp2 != null) {
 					di.setFilteringBehavior(FilteringBehavior.ENDPOINT_INDEPENDENT);
-					LOGGER.debug("RFC 5780 Filtering Behavior: ENDPOINT_INDEPENDENT.");
 				} else {
 					// RFC 5780 Section 4.4: Filtering Behavior - Test III (Change Port only)
 					ChangeRequest crPort = new ChangeRequest();
 					crPort.setChangePort();
-					LOGGER.debug("RFC 5780 Filtering Test III: Sending Binding Request with changeIP=false, changePort=true.");
 					MessageHeader filterResp3 = sendBindingRequest(socket, primaryServerIP, stunServerPort, crPort);
 					if (filterResp3 != null) {
 						di.setFilteringBehavior(FilteringBehavior.ADDRESS_DEPENDENT);
-						LOGGER.debug("RFC 5780 Filtering Behavior: ADDRESS_DEPENDENT.");
 					} else {
 						di.setFilteringBehavior(FilteringBehavior.ADDRESS_AND_PORT_DEPENDENT);
-						LOGGER.debug("RFC 5780 Filtering Behavior: ADDRESS_AND_PORT_DEPENDENT.");
 					}
 				}
 			}
 
 			// Populate legacy DiscoveryInfo fields for backward compatibility
 			populateLegacyClassification(di, isDirect);
-			LOGGER.info("RFC 5780 NAT behavior discovery completed for {}: mapping={}, filtering={}.",
-					sourceIaddress.getHostAddress(), di.getMappingBehavior(), di.getFilteringBehavior());
 		}
 		return di;
 	}
@@ -258,12 +236,9 @@ public class NatBehaviorDiscoveryTest {
 				return receiveMH;
 			} catch (SocketTimeoutException ste) {
 				if (elapsed < maxWaitTimeMs) {
-					LOGGER.debug("RFC 5780 Binding Request timeout to {}:{}. Retrying...", targetIP.getHostAddress(), targetPort);
 					elapsed += timeout;
 					timeout = Math.min(timeout * 2, 1600);
 				} else {
-					LOGGER.debug("RFC 5780 Binding Request to {}:{} timed out after {} ms. Giving up.",
-							targetIP.getHostAddress(), targetPort, elapsed);
 					return null;
 				}
 			}

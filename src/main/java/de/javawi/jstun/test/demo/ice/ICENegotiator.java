@@ -82,7 +82,6 @@ public class ICENegotiator {
 							// add host candidate
 							Candidate local = new Candidate(new Address(iaddress.getAddress()), componentId);
 							candidates.add(local);
-							LOGGER.debug("Added local ICE host candidate: {}.", local.getAddress());
 							// add server reflexive address
 							DiscoveryTest test = new DiscoveryTest(iaddress, 0, stunServer, stunPort);
 							DiscoveryInfo di = test.test();
@@ -95,27 +94,32 @@ public class ICENegotiator {
 										local);
 								cand.setComponentId(componentId);
 								candidates.add(cand);
-								LOGGER.debug("Added server-reflexive ICE candidate: {}:{}.", cand.getAddress(), cand.getPort());
 							}
 						} catch (MessageHeaderParsingException mhpe) {
-							LOGGER.debug("MessageHeaderParsingException while gathering candidate addresses: {}", mhpe.getMessage());
+							LOGGER.debug("MessageHeaderParsingException while gathering candidate addresses.");
+							// mhpe.printStackTrace();
 						} catch (MessageAttributeException mae) {
-							LOGGER.debug("MessageAttributeException while gathering candidate addresses: {}", mae.getMessage());
+							LOGGER.debug("MessageAttributeException while gathering candidate addresses.");
+							// mae.printStackTrace();	
 						} catch (UtilityException ue) {
-							LOGGER.debug("UtilityException while gathering candidate addresses: {}", ue.getMessage());
+							LOGGER.debug("UtilityException while gathering candidate addresses.");
+							// ue.printStackTrace();
 						} catch (UnknownHostException uhe) {
-							LOGGER.debug("UnknownHostException while gathering candidate addresses: {}", uhe.getMessage());
+							LOGGER.debug("MessageHeaderParsingException while gathering candidate addresses.");
+							// uhe.printStackTrace();
 						} catch (SocketException se) {
-							LOGGER.debug("SocketException while gathering candidate addresses: {}", se.getMessage());
+							LOGGER.debug("SocketException while gathering candidate addresses.");
+							// se.printStackTrace();
 						} catch (IOException ioe) {
-							LOGGER.debug("IOException while gathering candidate addresses: {}", ioe.getMessage());
+							LOGGER.debug("IOException while gathering candidate addresses.");
+							// ioe.printStackTrace();
 						}
 					}
 				}
 			}
-			LOGGER.info("Gathered {} ICE candidate(s) for component {}.", candidates.size(), componentId);
 		} catch (SocketException se) {
-			LOGGER.warn("SocketException while enumerating network interfaces: {}", se.getMessage(), se);
+			LOGGER.debug("SocketException while enumatering over the network cards.");
+			// se.printStackTrace();
 		}
 	}
 	
@@ -162,9 +166,7 @@ public class ICENegotiator {
 			componentValue = cand.getComponentId();
 			int priority = ((1 << 24) * typeValue) + ((1 << 8) * localValue) + componentValue;
 			cand.setPriority(priority);
-			LOGGER.debug("Assigned priority {} to candidate {} (type={}).", priority, cand.getAddress(), type);
 		}
-		LOGGER.info("Prioritized {} ICE candidate(s) for component {}.", candidates.size(), componentId);
 	}
 	
 	public List<Candidate> getSortedCandidates() {

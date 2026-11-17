@@ -11,13 +11,9 @@
 
 package de.javawi.jstun.attribute;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import de.javawi.jstun.util.*;
 
 public class MappedResponseChangedSourceAddressReflectedFrom extends MessageAttribute {
-	private static final Logger LOGGER = LoggerFactory.getLogger(MappedResponseChangedSourceAddressReflectedFrom.class);
 	int port;
 	Address address;
 	
@@ -36,7 +32,8 @@ public class MappedResponseChangedSourceAddressReflectedFrom extends MessageAttr
 			port = 0;
 			address = new Address("0.0.0.0");
 		} catch (UtilityException ue) {
-			LOGGER.error("Failed to initialize default address: {}", ue.getMessage(), ue);
+			ue.getMessage();
+			ue.printStackTrace();
 		}
 	}
 	

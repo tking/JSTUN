@@ -11,14 +11,10 @@
 
 package de.javawi.jstun.attribute;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class Dummy extends MessageAttribute {
-	private static final Logger LOGGER = LoggerFactory.getLogger(Dummy.class);
 	int lengthValue;
 	public Dummy() {
 		super(MessageAttributeType.Dummy);
@@ -41,7 +37,6 @@ public class Dummy extends MessageAttribute {
 	public static Dummy parse(byte[] data) {
 		Dummy dummy = new Dummy();
 		dummy.setLengthValue(data.length);
-		LOGGER.debug("Message Attribute: Dummy parsed (length={}).", data.length);
 		return dummy;
 	}
 }

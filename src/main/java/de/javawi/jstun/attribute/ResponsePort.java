@@ -11,14 +11,10 @@
 
 package de.javawi.jstun.attribute;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class ResponsePort extends MessageAttribute {
-	private static final Logger LOGGER = LoggerFactory.getLogger(ResponsePort.class);
 	private int port;
 
 	public ResponsePort() {
@@ -60,9 +56,7 @@ public class ResponsePort extends MessageAttribute {
 			byte[] portBytes = new byte[2];
 			System.arraycopy(data, 0, portBytes, 0, 2);
 			int parsedPort = Utility.twoBytesToInteger(portBytes);
-			ResponsePort rp = new ResponsePort(parsedPort);
-			LOGGER.debug("Message Attribute: Response Port parsed: port={}.", parsedPort);
-			return rp;
+			return new ResponsePort(parsedPort);
 		} catch (UtilityException | MessageAttributeException e) {
 			throw new MessageAttributeParsingException("Parsing error");
 		}

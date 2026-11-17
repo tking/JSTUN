@@ -74,8 +74,6 @@ public class StunServer {
 			StunServerReceiverThread ssrt = new StunServerReceiverThread(socket);
 			receiverThreads.add(ssrt);
 			ssrt.start();
-			LOGGER.info("STUN Server receiver thread started on {}:{}.",
-					socket.getLocalAddress().getHostAddress(), socket.getLocalPort());
 		}
 	}
 
@@ -89,8 +87,7 @@ public class StunServer {
 				try {
 					Thread.sleep( 50 );
 				} catch ( InterruptedException e ) {
-					Thread.currentThread().interrupt();
-					LOGGER.warn("Interrupted while waiting for STUN server socket to close.", e);
+					e.printStackTrace();
 				}
 			}
 		}
@@ -101,11 +98,9 @@ public class StunServer {
 					thread.join(remaining);
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt();
-					LOGGER.warn("Interrupted while joining STUN server receiver thread.", e);
 				}
 			}
 		}
-		LOGGER.info("STUN Server stopped.");
 	}
 
 	/*
@@ -278,8 +273,7 @@ public class StunServer {
 							}
 						}
 					} catch (UnknownMessageAttributeException umae) {
-						LOGGER.warn("Unknown mandatory message attribute {} received from {}:{}; sending Binding Error Response.",
-								umae.getType(), receive.getAddress().getHostAddress(), receive.getPort());
+						LOGGER.debug("Unknown mandatory message attribute: {}", umae.getType());
 						// Generate Binding error response
 						MessageHeader sendMH = new MessageHeader(MessageHeaderType.BindingErrorResponse);
 						sendMH.setTransactionID(receiveMH.getTransactionID());
@@ -302,19 +296,19 @@ public class StunServer {
 					if (!doRun || receiverSocket.isClosed()) {
 						break;
 					}
-					LOGGER.error("SocketException in STUN server receiver thread: {}", se.getMessage(), se);
+					se.printStackTrace();
 				} catch (IOException ioe) {
-					LOGGER.error("IOException in STUN server receiver thread: {}", ioe.getMessage(), ioe);
+					ioe.printStackTrace();
 				} catch (MessageAttributeParsingException mape) {
-					LOGGER.warn("MessageAttributeParsingException while parsing incoming STUN packet: {}", mape.getMessage());
+					mape.printStackTrace();
 				} catch (MessageAttributeException mae) {
-					LOGGER.warn("MessageAttributeException while processing STUN packet: {}", mae.getMessage());
+					mae.printStackTrace();
 				} catch (MessageHeaderParsingException mhpe) {
-					LOGGER.warn("MessageHeaderParsingException while parsing incoming STUN packet: {}", mhpe.getMessage());
+					mhpe.printStackTrace();
 				} catch (UtilityException ue) {
-					LOGGER.warn("UtilityException while processing STUN packet: {}", ue.getMessage());
+					ue.printStackTrace();
 				} catch (ArrayIndexOutOfBoundsException aioobe) {
-					LOGGER.warn("Malformed STUN packet caused ArrayIndexOutOfBoundsException: {}", aioobe.getMessage());
+					aioobe.printStackTrace();
 				}
 			}
 			receiverSocket.close();
@@ -343,11 +337,11 @@ public class StunServer {
 										   Integer.parseInt(args[2]), InetAddress.getByName(args[3]));
 			ss.start();
 		} catch (SocketException se) {
-			LOGGER.error("SocketException while starting STUN server: {}", se.getMessage(), se);
+			se.printStackTrace();
 		} catch (UnknownHostException uhe) {
-			LOGGER.error("UnknownHostException while starting STUN server: {}", uhe.getMessage(), uhe);
+			uhe.printStackTrace();
 		} catch (IOException ioe) {
-			LOGGER.error("IOException while starting STUN server: {}", ioe.getMessage(), ioe);
+			ioe.printStackTrace();
 		}
 	}
 }
