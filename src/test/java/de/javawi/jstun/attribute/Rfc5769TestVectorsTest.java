@@ -13,6 +13,7 @@ package de.javawi.jstun.attribute;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -255,5 +256,75 @@ public class Rfc5769TestVectorsTest {
 		Software sw = (Software) parsed.getMessageAttribute(MessageAttributeType.Software);
 		assertNotNull(sw);
 		assertEquals("Coturn-4.5.2 'dan Eider'", sw.getSoftware());
+	}
+
+	@Test
+	public void testRfc5769Section2_1_SampleRequest() throws Exception {
+		// RFC 5769 Section 2.1 parameters: short-term credential BindingRequest
+		String username = "evtj:h6vY";
+		String secret = "VOkJxbRl1RmTxUk/WvJxBt";
+		String softwareDesc = "STUN test client";
+
+		MessageHeader mh = new MessageHeader(MessageHeaderType.BindingRequest);
+		mh.setTransactionID(RFC5769_HEADER_ID);
+		mh.addMessageAttribute(new Username(username));
+		mh.addMessageAttribute(new Software(softwareDesc));
+
+		byte[] prefixBeforeMi = mh.getBytes();
+		byte[] hmac = MessageIntegrity.computeShortTermHMAC(prefixBeforeMi, secret);
+		mh.addMessageAttribute(new MessageIntegrity(hmac));
+
+		byte[] packet = mh.getBytesWithFingerprint();
+		assertTrue(Fingerprint.verify(packet));
+
+		MessageHeader parsed = MessageHeader.parseHeader(packet);
+		assertEquals(MessageHeaderType.BindingRequest, parsed.getType());
+		parsed.parseAttributes(packet);
+		assertTrue(parsed.hasMagicCookie());
+		assertEquals(username, ((Username) parsed.getMessageAttribute(MessageAttributeType.Username)).getUsername());
+		assertEquals(softwareDesc, ((Software) parsed.getMessageAttribute(MessageAttributeType.Software)).getSoftware());
+
+		MessageIntegrity parsedMi = (MessageIntegrity) parsed.getMessageAttribute(MessageAttributeType.MessageIntegrity);
+		assertNotNull(parsedMi);
+		assertArrayEquals(hmac, parsedMi.getHmac());
+		assertTrue(parsedMi.verifyShortTerm(prefixBeforeMi, secret));
+		assertFalse(parsedMi.verifyShortTerm(prefixBeforeMi, "wrongSecret"));
+	}
+
+	@Test
+	public void testRfc5769Section2_4_LongTermAuthRequestPacket() throws Exception {
+		// RFC 5769 Section 2.4 parameters: UTF-8 Japanese username + long-term credential
+		String japaneseUsername = "\u30de\u30c8\u30ea\u30c3\u30af\u30b9";
+		String realm = "example.org";
+		String nonce = "f//499k954d6OL34oL9FSTvy64sA";
+		String password = "TheMatrIX";
+
+		MessageHeader mh = new MessageHeader(MessageHeaderType.BindingRequest);
+		mh.setTransactionID(RFC5769_HEADER_ID);
+		mh.addMessageAttribute(new Username(japaneseUsername));
+		mh.addMessageAttribute(new Realm(realm));
+		mh.addMessageAttribute(new Nonce(nonce));
+
+		byte[] prefixBeforeMi = mh.getBytes();
+		byte[] hmac = MessageIntegrity.computeLongTermHMAC(prefixBeforeMi, japaneseUsername, realm, password);
+		mh.addMessageAttribute(new MessageIntegrity(hmac));
+
+		byte[] packet = mh.getBytesWithFingerprint();
+		assertTrue(Fingerprint.verify(packet));
+
+		MessageHeader parsed = MessageHeader.parseHeader(packet);
+		assertEquals(MessageHeaderType.BindingRequest, parsed.getType());
+		parsed.parseAttributes(packet);
+		assertTrue(parsed.hasMagicCookie());
+
+		assertEquals(japaneseUsername, ((Username) parsed.getMessageAttribute(MessageAttributeType.Username)).getUsername());
+		assertEquals(realm, ((Realm) parsed.getMessageAttribute(MessageAttributeType.Realm)).getRealm());
+		assertEquals(nonce, ((Nonce) parsed.getMessageAttribute(MessageAttributeType.Nonce)).getNonce());
+
+		MessageIntegrity parsedMi = (MessageIntegrity) parsed.getMessageAttribute(MessageAttributeType.MessageIntegrity);
+		assertNotNull(parsedMi);
+		assertArrayEquals(hmac, parsedMi.getHmac());
+		assertTrue(parsedMi.verifyLongTerm(prefixBeforeMi, japaneseUsername, realm, password));
+		assertFalse(parsedMi.verifyLongTerm(prefixBeforeMi, japaneseUsername, realm, "wrongPassword"));
 	}
 }
