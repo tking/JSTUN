@@ -360,28 +360,30 @@ public class Rfc5780AttributesAndDiscoveryTest {
 
 		// 1. Constrained path (e.g. WireGuard 1420-byte MTU)
 		try (SimulatedMtuServer mtu1420 = new SimulatedMtuServer(1420, false)) {
-			NatBehaviorDiscoveryTest test = new NatBehaviorDiscoveryTest(loopback, "127.0.0.1", mtu1420.getPort());
+			MtuDiscoveryTest test = new MtuDiscoveryTest(loopback, "127.0.0.1", mtu1420.getPort());
 			test.setTimeoutInitValue(25);
 			test.setMaxWaitTimeMs(40);
-			int discovered = test.discoverMtu(576, 9000);
+			int discovered = test.test(576, 9000);
 			assertEquals(1420, discovered);
+			org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> test.test(0, 1500));
+			org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> test.test(1500, 1000));
 		}
 
 		// 2. Jumbo frame path (9000-byte MTU)
 		try (SimulatedMtuServer mtu9000 = new SimulatedMtuServer(9000, false)) {
-			NatBehaviorDiscoveryTest test = new NatBehaviorDiscoveryTest(loopback, "127.0.0.1", mtu9000.getPort());
+			MtuDiscoveryTest test = new MtuDiscoveryTest(loopback, 0, "127.0.0.1", mtu9000.getPort());
 			test.setTimeoutInitValue(50);
 			test.setMaxWaitTimeMs(100);
-			int discovered = test.discoverMtu(576, 9000);
+			int discovered = test.test(576, 9000);
 			assertEquals(9000, discovered);
 		}
 
 		// 3. Legacy RFC 3489 server rejecting PADDING with 420 Unknown Attribute -> -1
 		try (SimulatedMtuServer legacyServer = new SimulatedMtuServer(1500, true)) {
-			NatBehaviorDiscoveryTest test = new NatBehaviorDiscoveryTest(loopback, "127.0.0.1", legacyServer.getPort());
+			MtuDiscoveryTest test = new MtuDiscoveryTest(loopback, "127.0.0.1", legacyServer.getPort());
 			test.setTimeoutInitValue(40);
 			test.setMaxWaitTimeMs(80);
-			assertEquals(-1, test.discoverMtu());
+			assertEquals(-1, test.test());
 		}
 	}
 
