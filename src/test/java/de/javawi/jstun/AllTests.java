@@ -16,6 +16,7 @@ import org.junit.platform.suite.api.Suite;
 
 import de.javawi.jstun.attribute.ExceptionsAndEdgeCasesTest;
 import de.javawi.jstun.attribute.MappedAddressTest;
+import de.javawi.jstun.attribute.Rfc5389And8489Test;
 import de.javawi.jstun.attribute.Rfc5769TestVectorsTest;
 import de.javawi.jstun.attribute.StunAttributesAndUtilityTest;
 import de.javawi.jstun.header.MessageHeaderTest;
@@ -32,6 +33,7 @@ import de.javawi.jstun.util.AddressTest;
 	AddressTest.class,
 	MappedAddressTest.class,
 	MessageHeaderTest.class,
+	Rfc5389And8489Test.class,
 	Rfc5769TestVectorsTest.class,
 	StunAttributesAndUtilityTest.class,
 	ExceptionsAndEdgeCasesTest.class,

@@ -227,7 +227,11 @@ public class StunServer {
 									receive.getAddress().getHostAddress(), receive.getPort());
 							continue;
 						}
-						if (receiveMH.getType() == MessageHeaderType.BindingRequest) {
+						if (receiveMH.getType() == MessageHeaderType.BindingIndication) {
+							LOGGER.debug("{}:{} Binding Indication received from {}:{}; no response sent per RFC 5389.",
+									receiverAddress.getHostAddress(), receiverPort,
+									receive.getAddress().getHostAddress(), receive.getPort());
+						} else if (receiveMH.getType() == MessageHeaderType.BindingRequest) {
 							LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " Binding Request received from " + receive.getAddress().getHostAddress() + ":" + receive.getPort());
 							ChangeRequest cr = (ChangeRequest) receiveMH.getMessageAttribute(MessageAttributeType.ChangeRequest);
 							if (cr == null) {

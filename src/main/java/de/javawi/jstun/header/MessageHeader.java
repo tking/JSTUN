@@ -65,6 +65,7 @@ public class MessageHeader implements MessageHeaderInterface {
 	
 	public static int typeToInteger(MessageHeaderType type) {
 		if (type == MessageHeaderType.BindingRequest) return BINDINGREQUEST;
+		if (type == MessageHeaderType.BindingIndication) return BINDINGINDICATION;
 		if (type == MessageHeaderType.BindingResponse) return BINDINGRESPONSE;
 		if (type == MessageHeaderType.BindingErrorResponse) return BINDINGERRORRESPONSE;
 		if (type == MessageHeaderType.SharedSecretRequest) return SHAREDSECRETREQUEST;
@@ -233,6 +234,7 @@ public class MessageHeader implements MessageHeaderInterface {
 			int type = Utility.twoBytesToInteger(typeArray);
 			switch (type) {
 				case BINDINGREQUEST: mh.setType(MessageHeaderType.BindingRequest); LOGGER.debug("Binding Request received."); break;
+				case BINDINGINDICATION: mh.setType(MessageHeaderType.BindingIndication); LOGGER.debug("Binding Indication received."); break;
 				case BINDINGRESPONSE: mh.setType(MessageHeaderType.BindingResponse); LOGGER.debug("Binding Response received."); break;
 				case BINDINGERRORRESPONSE: mh.setType(MessageHeaderType.BindingErrorResponse); LOGGER.debug("Binding Error Response received."); break;
 				case SHAREDSECRETREQUEST: mh.setType(MessageHeaderType.SharedSecretRequest); LOGGER.debug("Shared Secret Request received."); break;
