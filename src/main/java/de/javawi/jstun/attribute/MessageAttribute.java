@@ -51,12 +51,14 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 		if (type == MessageAttributeType.ReflectedFrom) return REFLECTEDFROM;
 		if (type == MessageAttributeType.Realm) return REALM;
 		if (type == MessageAttributeType.Nonce) return NONCE;
+		if (type == MessageAttributeType.MessageIntegritySha256) return MESSAGEINTEGRITYSHA256;
 		if (type == MessageAttributeType.XorMappedAddress) return XORMAPPEDADDRESS;
 		if (type == MessageAttributeType.Padding) return PADDING;
 		if (type == MessageAttributeType.ResponsePort) return RESPONSEPORT;
 		if (type == MessageAttributeType.Software) return SOFTWARE;
 		if (type == MessageAttributeType.AlternateServer) return ALTERNATESERVER;
 		if (type == MessageAttributeType.Fingerprint) return FINGERPRINT;
+		if (type == MessageAttributeType.Userhash) return USERHASH;
 		if (type == MessageAttributeType.ResponseOrigin) return RESPONSEORIGIN;
 		if (type == MessageAttributeType.OtherAddress) return OTHERADDRESS;
 		if (type == MessageAttributeType.Dummy) return DUMMY;
@@ -77,12 +79,14 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 		if (type == REFLECTEDFROM) return MessageAttributeType.ReflectedFrom;
 		if (type == REALM) return MessageAttributeType.Realm;
 		if (type == NONCE) return MessageAttributeType.Nonce;
+		if (type == MESSAGEINTEGRITYSHA256) return MessageAttributeType.MessageIntegritySha256;
 		if (type == XORMAPPEDADDRESS || type == XORMAPPEDADDRESS_OPTIONAL) return MessageAttributeType.XorMappedAddress;
 		if (type == PADDING) return MessageAttributeType.Padding;
 		if (type == RESPONSEPORT) return MessageAttributeType.ResponsePort;
 		if (type == SOFTWARE) return MessageAttributeType.Software;
 		if (type == ALTERNATESERVER) return MessageAttributeType.AlternateServer;
 		if (type == FINGERPRINT) return MessageAttributeType.Fingerprint;
+		if (type == USERHASH) return MessageAttributeType.Userhash;
 		if (type == RESPONSEORIGIN) return MessageAttributeType.ResponseOrigin;
 		if (type == OTHERADDRESS) return MessageAttributeType.OtherAddress;
 		if (type == DUMMY) return MessageAttributeType.Dummy;
@@ -126,6 +130,7 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 			case REFLECTEDFROM: ma = ReflectedFrom.parse(valueArray); break;
 			case REALM: ma = Realm.parse(valueArray); break;
 			case NONCE: ma = Nonce.parse(valueArray); break;
+			case MESSAGEINTEGRITYSHA256: ma = MessageIntegritySha256.parse(valueArray); break;
 			case XORMAPPEDADDRESS:
 			case XORMAPPEDADDRESS_OPTIONAL:
 				ma = XorMappedAddress.parse(valueArray, transactionId);
@@ -135,6 +140,7 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 			case SOFTWARE: ma = Software.parse(valueArray); break;
 			case ALTERNATESERVER: ma = AlternateServer.parse(valueArray); break;
 			case FINGERPRINT: ma = Fingerprint.parse(valueArray); break;
+			case USERHASH: ma = Userhash.parse(valueArray); break;
 			case RESPONSEORIGIN: ma = ResponseOrigin.parse(valueArray); break;
 			case OTHERADDRESS: ma = OtherAddress.parse(valueArray); break;
 			default:

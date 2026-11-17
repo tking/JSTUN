@@ -23,6 +23,7 @@ import java.net.UnknownHostException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.javawi.jstun.attribute.AlternateServer;
 import de.javawi.jstun.attribute.ChangeRequest;
 import de.javawi.jstun.attribute.ChangedAddress;
 import de.javawi.jstun.attribute.ErrorCode;
@@ -46,6 +47,7 @@ import de.javawi.jstun.util.UtilityException;
  */
 public class NatBehaviorDiscoveryTest {
 	private static final Logger LOGGER = LoggerFactory.getLogger(NatBehaviorDiscoveryTest.class);
+	private static final int MAX_ALTERNATE_SERVER_REDIRECTS = 2;
 	private final InetAddress sourceIaddress;
 	private final int sourcePort;
 	private final String stunServer;
@@ -230,6 +232,32 @@ public class NatBehaviorDiscoveryTest {
 	}
 
 	private MessageHeader sendBindingRequest(DatagramSocket socket, InetAddress targetIP, int targetPort,
+			ChangeRequest changeRequest)
+			throws UtilityException, IOException, MessageHeaderParsingException, MessageAttributeParsingException {
+		InetAddress currentIP = targetIP;
+		int currentPort = targetPort;
+		for (int redirectCount = 0; redirectCount <= MAX_ALTERNATE_SERVER_REDIRECTS; redirectCount++) {
+			MessageHeader resp = sendSingleBindingRequest(socket, currentIP, currentPort, changeRequest);
+			if (resp == null) {
+				return null;
+			}
+			ErrorCode ec = (ErrorCode) resp.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
+			AlternateServer alt = (AlternateServer) resp
+					.getMessageAttribute(MessageAttribute.MessageAttributeType.AlternateServer);
+			if (ec != null && ec.getResponseCode() == 300 && alt != null
+					&& redirectCount < MAX_ALTERNATE_SERVER_REDIRECTS) {
+				currentIP = alt.getAddress().getInetAddress();
+				currentPort = alt.getPort();
+				LOGGER.info("RFC 5389/8489 300 Try Alternate received; redirecting to {}:{}.",
+						currentIP.getHostAddress(), currentPort);
+				continue;
+			}
+			return resp;
+		}
+		return null;
+	}
+
+	private MessageHeader sendSingleBindingRequest(DatagramSocket socket, InetAddress targetIP, int targetPort,
 			ChangeRequest changeRequest)
 			throws UtilityException, IOException, MessageHeaderParsingException, MessageAttributeParsingException {
 		int elapsed = 0;
