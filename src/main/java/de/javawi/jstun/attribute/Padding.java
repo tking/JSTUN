@@ -11,10 +11,14 @@
 
 package de.javawi.jstun.attribute;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 public class Padding extends MessageAttribute {
+	private static final Logger LOGGER = LoggerFactory.getLogger(Padding.class);
 	private byte[] paddingBytes = new byte[4];
 
 	public Padding() {
@@ -55,6 +59,7 @@ public class Padding extends MessageAttribute {
 		Padding p = new Padding();
 		p.paddingBytes = new byte[data.length];
 		System.arraycopy(data, 0, p.paddingBytes, 0, data.length);
+		LOGGER.debug("Message Attribute: Padding parsed (length={}).", data.length);
 		return p;
 	}
 }

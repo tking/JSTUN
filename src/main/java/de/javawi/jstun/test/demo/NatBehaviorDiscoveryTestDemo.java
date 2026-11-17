@@ -19,12 +19,16 @@ import java.util.Enumeration;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import de.javawi.jstun.test.DiscoveryInfo;
 import de.javawi.jstun.test.NatBehaviorDiscoveryTest;
 
 public class NatBehaviorDiscoveryTestDemo implements Runnable {
+	private static final Logger LOGGER = LoggerFactory.getLogger(NatBehaviorDiscoveryTestDemo.class);
 	InetAddress iaddress;
 	int port;
 
@@ -41,12 +45,15 @@ public class NatBehaviorDiscoveryTestDemo implements Runnable {
 	public void run() {
 		try {
 			NatBehaviorDiscoveryTest test = new NatBehaviorDiscoveryTest(iaddress, port, "jstun.t-king.de", 3478);
-			System.out.println(test.test());
+			DiscoveryInfo info = test.test();
+			LOGGER.info("NatBehaviorDiscoveryTest result for {}: {}", iaddress, info);
+			System.out.println(info);
 		} catch (BindException be) {
+			LOGGER.warn("Unable to bind {}: {}", iaddress, be.getMessage());
 			System.out.println(iaddress.toString() + ": " + be.getMessage());
 		} catch (Exception e) {
+			LOGGER.error("Error running NatBehaviorDiscoveryTestDemo on {}: {}", iaddress, e.getMessage(), e);
 			System.out.println(e.getMessage());
-			e.printStackTrace();
 		}
 	}
 
@@ -54,8 +61,8 @@ public class NatBehaviorDiscoveryTestDemo implements Runnable {
 		try {
 			Handler fh = new FileHandler("logging.txt");
 			fh.setFormatter(new SimpleFormatter());
-			Logger.getLogger("de.javawi.jstun").addHandler(fh);
-			Logger.getLogger("de.javawi.jstun").setLevel(Level.ALL);
+			java.util.logging.Logger.getLogger("de.javawi.jstun").addHandler(fh);
+			java.util.logging.Logger.getLogger("de.javawi.jstun").setLevel(Level.ALL);
 
 			Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
 			while (ifaces.hasMoreElements()) {
@@ -72,6 +79,7 @@ public class NatBehaviorDiscoveryTestDemo implements Runnable {
 				}
 			}
 		} catch (Exception e) {
+			LOGGER.error("Error initializing NatBehaviorDiscoveryTestDemo: {}", e.getMessage(), e);
 			System.out.println(e.getMessage());
 		}
 	}
