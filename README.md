@@ -54,7 +54,7 @@ How does it work?
 ```
 
 ### Client Discovery
-To run the classic NAT discovery demo (`DiscoveryTestDemo`), RFC 5780 NAT behavior discovery demo (`NatBehaviorDiscoveryTestDemo`), RFC 5780 Path MTU discovery demo (`MtuDiscoveryTestDemo`), fast discovery demo (`FastDiscoveryTestDemo`), or UDP binding lifetime discovery demo (`BindingLifetimeTestDemo`):
+To run the classic NAT discovery demo (`DiscoveryTestDemo`), RFC 5780 NAT behavior discovery demo (`NatBehaviorDiscoveryTestDemo`), RFC 5780 Path MTU discovery demo (`MtuDiscoveryTestDemo`), RFC 5780 NAT hairpinning discovery demo (`HairpinningDiscoveryTestDemo`), fast discovery demo (`FastDiscoveryTestDemo`), or UDP binding lifetime discovery demo (`BindingLifetimeTestDemo`):
 ```bash
 # Classic RFC 3489 NAT Discovery
 java -cp jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
@@ -67,6 +67,10 @@ java -cp jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
 # RFC 5780 UDP Path MTU Discovery (576..9000 bytes, jumbo-frame capable)
 java -cp jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.MtuDiscoveryTestDemo
+
+# RFC 5780 NAT Hairpinning Behavior Discovery
+java -cp jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+  de.javawi.jstun.test.demo.HairpinningDiscoveryTestDemo
 
 # UDP Binding Lifetime Discovery
 java -cp jstun-1.0.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
@@ -84,6 +88,10 @@ System.out.println(info);
 MtuDiscoveryTest mtuTest = new MtuDiscoveryTest(
     InetAddress.getByName("0.0.0.0"), "jstun.t-king.de", 3478);
 int discoveredMtu = mtuTest.test(); // probes 576..9000 bytes (supports jumbo frames)
+
+HairpinningDiscoveryTest hairpinTest = new HairpinningDiscoveryTest(
+    InetAddress.getByName("0.0.0.0"), "jstun.t-king.de", 3478);
+Boolean hairpinningSupported = hairpinTest.test();
 ```
 
 ### STUN Server
@@ -117,7 +125,7 @@ The test suite (`de.javawi.jstun.AllTests`, with JaCoCo coverage reporting in `t
   * Section 2.4 Long-Term Auth Binding Request (UTF-8 Japanese username `マトリックス`, `example.org`, `TheMatrIX`, `MESSAGE-INTEGRITY`, `FINGERPRINT`)
   * 4-byte padding alignment for unaligned comprehension-optional attributes (`>= 0x8000`) and Coturn `ERROR-CODE` responses
 * **`StunAttributesAndUtilityTest` & `ExceptionsAndEdgeCasesTest`:** Tests short-term and long-term `MessageIntegrity` HMAC-SHA1 (including RFC 5769 Section 2.4 UTF-8 Japanese credentials), `Fingerprint` CRC-32 tamper detection, `UnknownAttribute`, `ErrorCode`, `ChangeRequest`, padded string attributes (`Username`, `Password`, `Realm`, `Nonce`, `Software` 127-char limit), IPv4/IPv6 address attributes, comprehension rules, malformed packets, and `Utility`.
-* **`DiscoveryInfoTest` & `DemosAndServerTest`:** Tests `DiscoveryInfo` NAT flags, RFC 5780 behavior/MTU formatting, and demo entrypoints (`DiscoveryTestDemo`, `FastDiscoveryTestDemo`, `NatBehaviorDiscoveryTestDemo`, `MtuDiscoveryTestDemo`, `BindingLifetimeTestDemo`).
+* **`DiscoveryInfoTest` & `DemosAndServerTest`:** Tests `DiscoveryInfo` NAT flags, RFC 5780 behavior/MTU formatting, and demo entrypoints (`DiscoveryTestDemo`, `FastDiscoveryTestDemo`, `NatBehaviorDiscoveryTestDemo`, `MtuDiscoveryTestDemo`, `HairpinningDiscoveryTestDemo`, `BindingLifetimeTestDemo`).
 * **`ICENegotiatorTest`:** Tests **ICE** candidate gathering, priority calculation (`Relayed > PeerReflexive > ServerReflexive > Local`), sorting, and candidate socket handling.
 * **`MessageHeaderTest`, `MappedAddressTest`, & `AddressTest`:** Tests STUN header serialization/parsing, Magic Cookie handling, Transaction IDs, and IPv4/IPv6 address utilities.
 

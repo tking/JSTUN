@@ -52,6 +52,13 @@ public class DemosAndServerTest {
 		assertNotNull(demoMtuPort);
 		demoMtuPort.run();
 
+		// HairpinningDiscoveryTestDemo
+		HairpinningDiscoveryTestDemo demoHairpin = new HairpinningDiscoveryTestDemo(loopback);
+		assertNotNull(demoHairpin);
+		HairpinningDiscoveryTestDemo demoHairpinPort = new HairpinningDiscoveryTestDemo(loopback, 54325);
+		assertNotNull(demoHairpinPort);
+		demoHairpinPort.run();
+
 		// BindingLifetimeTestDemo
 		BindingLifetimeTestDemo demo4 = new BindingLifetimeTestDemo();
 		assertNotNull(demo4);
