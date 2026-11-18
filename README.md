@@ -16,29 +16,30 @@ What is "JSTUN"?
 Supported RFCs & Features
 -------------------------
 * **RFC 5389 / RFC 8489 – Session Traversal Utilities for NAT (STUN)**
-  * **Magic Cookie & 96-bit Transaction ID:** `MessageHeader.generateTransactionID()` generates the standard 32-bit Magic Cookie (`0x2112A442`) followed by 96 cryptographically random bits via `SecureRandom` (`hasMagicCookie()` checks for its presence, and `generateRFC3489TransactionID()` remains available for legacy 128-bit transaction IDs).
-  * **`XOR-MAPPED-ADDRESS` (`0x0020` / `0x8020`):** Full IPv4 (XOR with Magic Cookie) and IPv6 (128-bit XOR with Magic Cookie + Transaction ID) encoding and decoding via `XorMappedAddress`.
-  * **`MESSAGE-INTEGRITY` (`0x0008`) & `MESSAGE-INTEGRITY-SHA256` (`0x001C`):** Complete HMAC-SHA1 (`MessageIntegrity`) and RFC 8489 HMAC-SHA256 (`MessageIntegritySha256`) calculation and verification for both short-term and long-term credentials, plus `USERHASH` (`0x8029`) in `Userhash`.
-  * **`FINGERPRINT` (`0x8028`):** CRC-32 XOR `0x5354554e` calculation and verification in `Fingerprint` and `MessageHeader.getBytesWithFingerprint()` to distinguish STUN packets from multiplexed protocols. Automatically appended by `StunServer` and discovery clients (and verified when present) while remaining RFC 3489 backward compatible.
-  * **`SOFTWARE` (`0x8022`):** Automatic RFC 5389 §15.10 identification (`JSTUN/<version> (https://github.com/tking/JSTUN)`) via `Software.jstun()` and `JstunVersion` on all client Binding Requests and `StunServer` responses.
-  * **Binding Indications (`0x0011`) & `300 Try Alternate` Redirects:** `MessageHeaderType.BindingIndication` (silently accepted without response by `StunServer`) and automatic `AlternateServer` (`0x8023`) redirect handling with loop protection in `NatBehaviorDiscoveryTest`.
-  * **Additional RFC 5389 / 8489 Attributes:** `Realm` (`0x0014`) and `Nonce` (`0x0015`).
+  * **Magic Cookie & 96-bit Transaction ID:** `MessageHeader.generateTransactionID()` generates the 32-bit Magic Cookie (`0x2112A442`) followed by 96 cryptographically random bits via `SecureRandom` (`hasMagicCookie()` checks for its presence; `generateRFC3489TransactionID()` remains available for legacy 128-bit IDs).
+  * **Address Mapping:** `XOR-MAPPED-ADDRESS` (`0x0020` / `0x8020`) via `XorMappedAddress`, supporting both IPv4 (XOR with Magic Cookie) and IPv6 (128-bit XOR with Magic Cookie + Transaction ID).
+  * **Authentication & Integrity:** `MESSAGE-INTEGRITY` (`0x0008`, HMAC-SHA1 via `MessageIntegrity`), `MESSAGE-INTEGRITY-SHA256` (`0x001C`, HMAC-SHA256 via `MessageIntegritySha256`), `USERHASH` (`0x8029` via `Userhash`), `REALM` (`0x0014` via `Realm`), and `NONCE` (`0x0015` via `Nonce`) for short-term and long-term credentials.
+  * **Packet Multiplexing & Identification:** `FINGERPRINT` (`0x8028`, CRC-32 XOR `0x5354554e` via `Fingerprint` and `MessageHeader.getBytesWithFingerprint()`) and `SOFTWARE` (`0x8022` via `Software.jstun()` and `JstunVersion`, formatted as `JSTUN/<version> (https://github.com/tking/JSTUN)`), automatically appended and verified while preserving RFC 3489 backward compatibility.
+  * **Binding Indications & Redirects:** `BindingIndication` (`0x0011` via `MessageHeaderType.BindingIndication`, silently accepted without response by `StunServer`) and `300 Try Alternate` redirects using `ALTERNATE-SERVER` (`0x8023` via `AlternateServer`) with loop protection in `NatBehaviorDiscoveryTest`.
   * **4-Byte Padding Alignment:** Automatic 4-byte boundary padding when serializing and parsing variable-length attributes and unknown comprehension-optional attributes (`>= 0x8000`).
 
 * **RFC 5780 – NAT Behavior Discovery Using STUN**
-  * **Two-Dimensional NAT Classification (`DiscoveryInfo`):**
-    * `MappingBehavior`: `DIRECT`, `ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`
-    * `FilteringBehavior`: `ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`
-  * **`NatBehaviorDiscoveryTest`:** Implements the multi-step RFC 5780 procedures for determining NAT Mapping Behavior (Section 4.3, Tests I–III) and NAT Filtering Behavior (Section 4.4, Tests II–III) while maintaining compatibility with classic `DiscoveryInfo` flags.
-  * **`MtuDiscoveryTest`:** Implements RFC 5780 Section 4.6 UDP Path MTU probing via binary search and `PADDING` (`0x0026`), supporting `576..9000` bytes (including Ethernet jumbo frames) over IPv4/IPv6 with graceful fallback (`-1`) on legacy RFC 3489 servers.
-  * **`HairpinningDiscoveryTest`:** Implements RFC 5780 NAT Hairpinning Behavior discovery by probing a socket's external mapped endpoint from a second local socket.
-  * **RFC 5780 `RESPONSE-PORT` Binding Lifetime Probing:** `BindingLifetimeTest.setUseResponsePort(true)` supports RFC 5780 `RESPONSE-PORT` (`0x0027`) probes alongside RFC 3489 `RESPONSE-ADDRESS`.
-  * **RFC 5780 Attributes:** `OtherAddress` (`0x802C`, replacing `CHANGED-ADDRESS`), `ResponseOrigin` (`0x802B`, replacing `SOURCE-ADDRESS`), `ResponsePort` (`0x0027`), and `Padding` (`0x0026`).
+  * **Two-Dimensional NAT Classification:** `DiscoveryInfo` models `MappingBehavior` (`DIRECT`, `ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`) and `FilteringBehavior` (`ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`).
+  * **NAT Mapping & Filtering Discovery:** `NatBehaviorDiscoveryTest` implements Section 4.3 Mapping Behavior (Tests I–III) and Section 4.4 Filtering Behavior (Tests II–III) while maintaining classic `DiscoveryInfo` compatibility.
+  * **UDP Path MTU Discovery:** `MtuDiscoveryTest` implements Section 4.6 binary-search MTU probing with `PADDING` (`0x0026` via `Padding`), supporting `576..9000` bytes (including Ethernet jumbo frames) over IPv4/IPv6 with graceful `-1` fallback on legacy RFC 3489 servers.
+  * **NAT Hairpinning Discovery:** `HairpinningDiscoveryTest` probes a socket's external mapped endpoint from a second local socket to determine hairpinning support.
+  * **`RESPONSE-PORT` Binding Lifetime Probing:** `BindingLifetimeTest.setUseResponsePort(true)` probes binding lifetimes using `RESPONSE-PORT` (`0x0027` via `ResponsePort`) alongside classic `RESPONSE-ADDRESS`.
+  * **RFC 5780 Attributes:** `OTHER-ADDRESS` (`0x802C` via `OtherAddress`, replacing `CHANGED-ADDRESS`), `RESPONSE-ORIGIN` (`0x802B` via `ResponseOrigin`, replacing `SOURCE-ADDRESS`), `RESPONSE-PORT` (`0x0027` via `ResponsePort`), and `PADDING` (`0x0026` via `Padding`).
 
-* **RFC 3489 – Classic STUN & Dual-Stack IPv4/IPv6**
-  * Classic cone/symmetric NAT discovery via `DiscoveryTest`, `FastDiscoveryTest`, and `BindingLifetimeTest`, upgraded to transparently accept `XOR-MAPPED-ADDRESS` and `OTHER-ADDRESS` with fallback to `MAPPED-ADDRESS` and `CHANGED-ADDRESS`.
-  * IPv4 and IPv6 address family support (thanks to https://github.com/fourjr).
-  * Dual-homed `StunServer` supporting standard Binding Requests (with or without `CHANGE-REQUEST`), returning `MAPPED-ADDRESS`, `XOR-MAPPED-ADDRESS`, `SOURCE-ADDRESS`, `RESPONSE-ORIGIN`, `CHANGED-ADDRESS`, `OTHER-ADDRESS`, `SOFTWARE`, and `FINGERPRINT`, honoring `RESPONSE-PORT` and `RESPONSE-ADDRESS`, echoing `PADDING` up to jumbo-frame sizes (`9216` bytes), and returning `ERROR-CODE` (`420`) on unknown mandatory attributes.
+* **RFC 5769 – Test Vectors for Session Traversal Utilities for NAT (STUN)**
+  * **Wire-Level Golden Vectors:** Byte-for-byte verification of Binding Request/Response serialization, `XOR-MAPPED-ADDRESS` (IPv4/IPv6), `SOFTWARE`, `MESSAGE-INTEGRITY`, `FINGERPRINT`, and UTF-8 long-term credentials against official Sections 2.1–2.4 test vectors in `Rfc5769TestVectorsTest`.
+
+* **RFC 3489 – Classic STUN (Simple Traversal of UDP Through NATs)**
+  * **Classic NAT & Lifetime Discovery:** `DiscoveryTest`, `FastDiscoveryTest`, and `BindingLifetimeTest` implement RFC 3489 Section 10.1/10.2 discovery and transparently prefer `XOR-MAPPED-ADDRESS` and `OTHER-ADDRESS` with fallback to `MAPPED-ADDRESS` (`0x0001`) and `CHANGED-ADDRESS` (`0x0005`).
+
+* **Dual-Homed STUN Server & Dual-Stack Transport**
+  * **IPv4 / IPv6 Support:** Full dual-stack address family support across attributes, discovery tests, and server sockets (thanks to [fourjr](https://github.com/fourjr)).
+  * **Dual-Homed `StunServer`:** Handles standard Binding Requests (with or without `CHANGE-REQUEST`), emits `MAPPED-ADDRESS`, `XOR-MAPPED-ADDRESS`, `SOURCE-ADDRESS`, `RESPONSE-ORIGIN`, `CHANGED-ADDRESS`, `OTHER-ADDRESS`, `SOFTWARE`, and `FINGERPRINT`, honors `RESPONSE-PORT` and `RESPONSE-ADDRESS`, echoes `PADDING` up to jumbo-frame sizes (`9216` bytes), silently ignores `BindingIndication`, and returns `ERROR-CODE` (`420`) with `UNKNOWN-ATTRIBUTES` on unknown mandatory attributes.
 
 
 How does it work?
