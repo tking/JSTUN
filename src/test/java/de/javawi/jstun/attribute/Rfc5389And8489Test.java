@@ -158,10 +158,41 @@ public class Rfc5389And8489Test {
 		// Validation checks
 		assertThrows(MessageAttributeException.class, () -> new MessageIntegritySha256(new byte[16]));
 		assertThrows(MessageAttributeParsingException.class, () -> MessageIntegritySha256.parse(new byte[16]));
+		assertThrows(MessageAttributeParsingException.class, () -> MessageIntegritySha256.parse(null));
 		assertThrows(de.javawi.jstun.util.UtilityException.class,
 				() -> MessageIntegritySha256.computeShortTermHMAC(new byte[10], "secret"));
+		assertThrows(de.javawi.jstun.util.UtilityException.class,
+				() -> MessageIntegritySha256.computeShortTermHMAC(prefixBeforeMi, ""));
+		assertThrows(de.javawi.jstun.util.UtilityException.class,
+				() -> MessageIntegritySha256.computeShortTermHMAC(prefixBeforeMi, null));
+		assertThrows(de.javawi.jstun.util.UtilityException.class,
+				() -> MessageIntegritySha256.computeHMAC(prefixBeforeMi, new byte[0]));
+		assertThrows(de.javawi.jstun.util.UtilityException.class,
+				() -> MessageIntegritySha256.computeHMAC(prefixBeforeMi, null));
 		assertThrows(MessageAttributeException.class, () -> new Userhash(new byte[16]));
 		assertThrows(MessageAttributeParsingException.class, () -> Userhash.parse(new byte[16]));
+
+		// MessageIntegrity (HMAC-SHA1) strict length, non-empty key, and constant-time verification checks
+		byte[] sha1Short = MessageIntegrity.computeShortTermHMAC(prefixBeforeMi, password);
+		MessageIntegrity miSha1 = new MessageIntegrity(sha1Short);
+		assertTrue(miSha1.verifyShortTerm(prefixBeforeMi, password));
+		assertFalse(miSha1.verifyShortTerm(prefixBeforeMi, "wrong"));
+		byte[] sha1Long = MessageIntegrity.computeLongTermHMAC(prefixBeforeMi, username, realm, password);
+		MessageIntegrity miSha1Long = new MessageIntegrity(sha1Long);
+		assertTrue(miSha1Long.verifyLongTerm(prefixBeforeMi, username, realm, password));
+		assertFalse(miSha1Long.verifyLongTerm(prefixBeforeMi, username, realm, "wrong"));
+
+		assertThrows(MessageAttributeParsingException.class, () -> MessageIntegrity.parse(null));
+		assertThrows(MessageAttributeParsingException.class, () -> MessageIntegrity.parse(new byte[19]));
+		assertThrows(MessageAttributeParsingException.class, () -> MessageIntegrity.parse(new byte[21]));
+		assertThrows(de.javawi.jstun.util.UtilityException.class,
+				() -> MessageIntegrity.computeShortTermHMAC(prefixBeforeMi, ""));
+		assertThrows(de.javawi.jstun.util.UtilityException.class,
+				() -> MessageIntegrity.computeShortTermHMAC(prefixBeforeMi, null));
+		assertThrows(de.javawi.jstun.util.UtilityException.class,
+				() -> MessageIntegrity.computeHMAC(prefixBeforeMi, new byte[0]));
+		assertThrows(de.javawi.jstun.util.UtilityException.class,
+				() -> MessageIntegrity.computeHMAC(prefixBeforeMi, null));
 	}
 
 	static class RedirectOrTargetServer implements AutoCloseable {
