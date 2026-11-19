@@ -14,8 +14,12 @@ package de.javawi.jstun.test.demo;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.net.InetAddress;
+import java.nio.file.Path;
+import java.util.logging.FileHandler;
+import java.util.logging.SimpleFormatter;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class DemosAndServerTest {
 
@@ -62,5 +66,21 @@ public class DemosAndServerTest {
 		// BindingLifetimeTestDemo
 		BindingLifetimeTestDemo demo4 = new BindingLifetimeTestDemo();
 		assertNotNull(demo4);
+	}
+
+	@Test
+	public void testStunServerRotatingLogFileHandler(@TempDir Path tempDir) throws Exception {
+		assertTrue(StunServer.LOG_FILE_LIMIT_BYTES > 0);
+		assertTrue(StunServer.LOG_FILE_COUNT > 1);
+		assertTrue(StunServer.LOG_FILE_PATTERN.contains("%g"));
+
+		String pattern = tempDir.resolve("logging_server.%g.txt").toString();
+		FileHandler handler = StunServer.createLogFileHandler(pattern);
+		try {
+			assertNotNull(handler);
+			assertInstanceOf(SimpleFormatter.class, handler.getFormatter());
+		} finally {
+			handler.close();
+		}
 	}
 }

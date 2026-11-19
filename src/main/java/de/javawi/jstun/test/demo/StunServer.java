@@ -56,6 +56,9 @@ public class StunServer {
 	/** Receive buffer sized for jumbo frames (9000-byte MTU + headers). */
 	private static final int RECEIVE_BUFFER_SIZE = 10240;
 	private static final int MAX_ECHO_PACKET_SIZE = 9216;
+	static final int LOG_FILE_LIMIT_BYTES = 10 * 1024 * 1024;
+	static final int LOG_FILE_COUNT = 5;
+	static final String LOG_FILE_PATTERN = "logging_server.%g.txt";
 	Vector<DatagramSocket> sockets;
 	private final Vector<StunServerReceiverThread> receiverThreads = new Vector<StunServerReceiverThread>();
 	private volatile boolean doRun;
@@ -364,12 +367,20 @@ public class StunServer {
 					LOGGER.warn("UtilityException while processing STUN packet: {}", ue.getMessage());
 				} catch (ArrayIndexOutOfBoundsException aioobe) {
 					LOGGER.warn("Malformed STUN packet caused ArrayIndexOutOfBoundsException: {}", aioobe.getMessage());
+				} catch (RuntimeException re) {
+					LOGGER.warn("Unexpected RuntimeException while processing STUN packet: {}", re.getMessage(), re);
 				}
 			}
 			receiverSocket.close();
 		}
 	}
 	
+	static FileHandler createLogFileHandler(String pattern) throws IOException {
+		FileHandler fh = new FileHandler(pattern, LOG_FILE_LIMIT_BYTES, LOG_FILE_COUNT, true);
+		fh.setFormatter(new SimpleFormatter());
+		return fh;
+	}
+
 	/*
 	 * To invoke the STUN server two IP addresses and two ports are required.
 	 */
@@ -384,10 +395,10 @@ public class StunServer {
 				System.out.println("   IP2 - the second ip address that should be used by the server");
 				System.exit(0);
 			}
-			Handler fh = new FileHandler("logging_server.txt");
-			fh.setFormatter(new SimpleFormatter());
-			java.util.logging.Logger.getLogger("de.javawi.jstun").addHandler(fh);
-			java.util.logging.Logger.getLogger("de.javawi.jstun").setLevel(Level.ALL);
+			Handler fh = createLogFileHandler(LOG_FILE_PATTERN);
+			java.util.logging.Logger julLogger = java.util.logging.Logger.getLogger("de.javawi.jstun");
+			julLogger.addHandler(fh);
+			julLogger.setLevel(Level.INFO);
 			StunServer ss = new StunServer(Integer.parseInt(args[0]), InetAddress.getByName(args[1]),
 										   Integer.parseInt(args[2]), InetAddress.getByName(args[3]));
 			LOGGER.info("Starting {}", JstunVersion.SOFTWARE);

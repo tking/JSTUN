@@ -376,6 +376,30 @@ public class BindingLifetimeAndStunServerTest {
 			assertEquals(MessageHeaderType.BindingResponse, resp9.getType());
 			assertNotNull(resp9.getMessageAttribute(MessageAttributeType.Padding));
 			assertTrue(resp9Raw.length >= 2900 && resp9Raw.length <= req9Bytes.length);
+
+			// 10. Malformed/runtime-triggering packets must not kill StunServer receiver thread
+			byte[] truncatedAttrPacket = new byte[24];
+			System.arraycopy(rawHeader, 0, truncatedAttrPacket, 0, 20);
+			truncatedAttrPacket[2] = 0x00;
+			truncatedAttrPacket[3] = 0x04; // payload length 4
+			truncatedAttrPacket[20] = 0x00;
+			truncatedAttrPacket[21] = 0x01; // MAPPED-ADDRESS
+			truncatedAttrPacket[22] = 0x00;
+			truncatedAttrPacket[23] = 0x20; // claims 32 bytes when only 0 remain
+			clientSocket.send(new DatagramPacket(truncatedAttrPacket, truncatedAttrPacket.length, loopback, ports[0]));
+
+			// Follow-up valid BindingRequest must still succeed
+			MessageHeader req10 = new MessageHeader(MessageHeaderType.BindingRequest);
+			req10.generateTransactionID();
+			byte[] req10Bytes = req10.getBytesWithFingerprint();
+			clientSocket.send(new DatagramPacket(req10Bytes, req10Bytes.length, loopback, ports[0]));
+
+			DatagramPacket recv10 = new DatagramPacket(new byte[512], 512);
+			clientSocket.receive(recv10);
+			MessageHeader resp10 = MessageHeader.parseHeader(recv10.getData());
+			resp10.parseAttributes(recv10.getData());
+			assertEquals(MessageHeaderType.BindingResponse, resp10.getType());
+			assertTrue(resp10.equalTransactionID(req10));
 		} finally {
 			server.stop();
 		}
