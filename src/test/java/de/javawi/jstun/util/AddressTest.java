@@ -13,6 +13,7 @@ package de.javawi.jstun.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -253,5 +254,43 @@ public class AddressTest {
 		} catch (UtilityException ue) {
 			ue.printStackTrace();
 		}
+	}
+
+	@Test
+	public void testAddressValidationAndEdgeCases() throws Exception {
+		// Invalid IPv4 int constructors
+		assertThrows(UtilityException.class, () -> new Address(-1, 0, 0, 1));
+		assertThrows(UtilityException.class, () -> new Address(256, 0, 0, 1));
+		assertThrows(UtilityException.class, () -> new Address(new int[3]));
+		assertThrows(UtilityException.class, () -> new Address(new int[] { 1, 2, 3, 256 }));
+		assertThrows(UtilityException.class, () -> new Address(new int[] { -1, 0, 0, 0 }));
+		assertThrows(UtilityException.class, () -> new Address(new byte[3]));
+
+		// Invalid string formats (IPv4 & IPv6)
+		assertThrows(UtilityException.class, () -> new Address((String) null));
+		assertThrows(UtilityException.class, () -> new Address(""));
+		assertThrows(UtilityException.class, () -> new Address("192.168.1"));
+		assertThrows(UtilityException.class, () -> new Address("192.168.1.abc"));
+		assertThrows(UtilityException.class, () -> new Address("192.168.1.999"));
+		assertThrows(UtilityException.class, () -> new Address("2001::db8::1"));
+		assertThrows(UtilityException.class, () -> new Address("2001:::1"));
+		assertThrows(UtilityException.class, () -> new Address(":2001::1"));
+		assertThrows(UtilityException.class, () -> new Address("2001::1:"));
+		assertThrows(UtilityException.class, () -> new Address("1:2:3:4:5:6:7:8::9"));
+		assertThrows(UtilityException.class, () -> new Address("2001:db8:zzzz::1"));
+		assertThrows(UtilityException.class, () -> new Address("1:2:3"));
+
+		// Compressed IPv6 forms & cross-family equals/hashCode
+		Address loopbackV6 = new Address("::1");
+		Address unspecV6 = new Address("::");
+		Address linkLocalV6 = new Address("fe80::1");
+		assertEquals(16, loopbackV6.getBytes().length);
+		assertEquals(16, unspecV6.getBytes().length);
+		assertEquals(16, linkLocalV6.getBytes().length);
+		assertEquals(new Address("0:0:0:0:0:0:0:1"), loopbackV6);
+		assertEquals(new Address("0:0:0:0:0:0:0:1").hashCode(), loopbackV6.hashCode());
+		assertFalse(ipv4Address.equals(ipv6Address));
+		assertFalse(ipv4Address.equals(null));
+		assertFalse(ipv4Address.equals("192.168.100.1"));
 	}
 }
