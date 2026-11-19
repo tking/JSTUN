@@ -127,16 +127,9 @@ public class HairpinningDiscoveryTest {
 			int timeout = timeoutInitValue;
 			while (true) {
 				try {
-					socketA.setSoTimeout(timeout);
 					socketB.send(new DatagramPacket(hairpinBytes, hairpinBytes.length, mappedIp, mappedPort));
 
-					MessageHeader received = new MessageHeader();
-					while (!received.equalTransactionID(hairpinReq)) {
-						DatagramPacket pkt = new DatagramPacket(new byte[512], 512);
-						socketA.receive(pkt);
-						received = MessageHeader.parseHeader(pkt.getData());
-						received.parseAttributes(pkt.getData());
-					}
+					StunSocketReceiver.receiveMatching(socketA, hairpinReq, timeout);
 					LOGGER.info("RFC 5780 Hairpinning Test against {}:{}: hairpinning SUPPORTED.", stunServer, stunServerPort);
 					return Boolean.TRUE;
 				} catch (SocketTimeoutException ste) {
@@ -160,16 +153,8 @@ public class HairpinningDiscoveryTest {
 		int timeout = timeoutInitValue;
 		while (true) {
 			try {
-				socket.setSoTimeout(timeout);
 				socket.send(new DatagramPacket(data, data.length, targetIP, targetPort));
-				MessageHeader receiveMH = new MessageHeader();
-				while (!receiveMH.equalTransactionID(sendMH)) {
-					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
-					socket.receive(receive);
-					receiveMH = MessageHeader.parseHeader(receive.getData());
-					receiveMH.parseAttributes(receive.getData());
-				}
-				return receiveMH;
+				return StunSocketReceiver.receiveMatching(socket, sendMH, timeout);
 			} catch (SocketTimeoutException ste) {
 				if (elapsed < maxWaitTimeMs) {
 					elapsed += timeout;

@@ -92,13 +92,7 @@ public class BindingLifetimeTest {
 		initialSocket.send(send);
 		LOGGER.debug("Binding Request sent.");
 
-		MessageHeader receiveMH = new MessageHeader();
-		while (!(receiveMH.equalTransactionID(sendMH))) {
-			DatagramPacket receive = new DatagramPacket(new byte[200], 200);
-			initialSocket.receive(receive);
-			receiveMH = MessageHeader.parseHeader(receive.getData());
-			receiveMH.parseAttributes(receive.getData());
-		}
+		MessageHeader receiveMH = StunSocketReceiver.receiveMatching(initialSocket, sendMH, timeout);
 		ma = (MappedAddress) receiveMH.getMessageAttribute(MessageAttribute.MessageAttributeType.MappedAddress);
 		if (ma == null) {
 			XorMappedAddress xma = (XorMappedAddress) receiveMH
@@ -198,13 +192,7 @@ public class BindingLifetimeTest {
 				socket.send(send);
 				LOGGER.debug("Binding Request sent.");
 
-				MessageHeader receiveMH = new MessageHeader();
-				while (!(receiveMH.equalTransactionID(sendMH))) {
-					DatagramPacket receive = new DatagramPacket(new byte[200], 200);
-					initialSocket.receive(receive);
-					receiveMH = MessageHeader.parseHeader(receive.getData());
-					receiveMH.parseAttributes(receive.getData());
-				}
+				MessageHeader receiveMH = StunSocketReceiver.receiveMatching(initialSocket, sendMH, timeout);
 				ErrorCode ec = (ErrorCode) receiveMH
 						.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
 				if (ec != null) {

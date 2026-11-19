@@ -24,6 +24,7 @@ import de.javawi.jstun.test.BindingLifetimeAndStunServerTest;
 import de.javawi.jstun.test.DiscoveryInfoTest;
 import de.javawi.jstun.test.Rfc3489DiscoveryAlgorithmTest;
 import de.javawi.jstun.test.Rfc5780AttributesAndDiscoveryTest;
+import de.javawi.jstun.test.StunSocketReceiverTest;
 import de.javawi.jstun.test.demo.DemosAndServerTest;
 import de.javawi.jstun.test.demo.ice.ICENegotiatorTest;
 import de.javawi.jstun.util.AddressTest;
@@ -41,6 +42,7 @@ import de.javawi.jstun.util.AddressTest;
 	Rfc3489DiscoveryAlgorithmTest.class,
 	Rfc5780AttributesAndDiscoveryTest.class,
 	BindingLifetimeAndStunServerTest.class,
+	StunSocketReceiverTest.class,
 	ICENegotiatorTest.class,
 	DemosAndServerTest.class
 })

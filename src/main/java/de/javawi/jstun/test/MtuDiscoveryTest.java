@@ -171,20 +171,12 @@ public class MtuDiscoveryTest {
 
 		while (true) {
 			try {
-				socket.setSoTimeout(timeout);
 				DatagramPacket send = new DatagramPacket(data, data.length, targetIP, targetPort);
 				socket.send(send);
 				LOGGER.debug("RFC 5780 MTU probe ({} STUN bytes) sent to {}:{}",
 						data.length, targetIP.getHostAddress(), targetPort);
 
-				MessageHeader receiveMH = new MessageHeader();
-				while (!receiveMH.equalTransactionID(sendMH)) {
-					DatagramPacket receive = new DatagramPacket(new byte[receiveBufferSize], receiveBufferSize);
-					socket.receive(receive);
-					receiveMH = MessageHeader.parseHeader(receive.getData());
-					receiveMH.parseAttributes(receive.getData());
-				}
-				return receiveMH;
+				return StunSocketReceiver.receiveMatching(socket, sendMH, timeout, receiveBufferSize);
 			} catch (SocketTimeoutException ste) {
 				if (elapsed < maxWaitTimeMs) {
 					LOGGER.debug("RFC 5780 MTU probe timeout to {}:{}. Retrying...", targetIP.getHostAddress(), targetPort);

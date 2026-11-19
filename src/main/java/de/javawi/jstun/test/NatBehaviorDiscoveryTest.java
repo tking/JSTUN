@@ -273,19 +273,11 @@ public class NatBehaviorDiscoveryTest {
 
 		while (true) {
 			try {
-				socket.setSoTimeout(timeout);
 				DatagramPacket send = new DatagramPacket(data, data.length, targetIP, targetPort);
 				socket.send(send);
 				LOGGER.debug("RFC 5780 Binding Request sent to " + targetIP.getHostAddress() + ":" + targetPort);
 
-				MessageHeader receiveMH = new MessageHeader();
-				while (!receiveMH.equalTransactionID(sendMH)) {
-					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
-					socket.receive(receive);
-					receiveMH = MessageHeader.parseHeader(receive.getData());
-					receiveMH.parseAttributes(receive.getData());
-				}
-				return receiveMH;
+				return StunSocketReceiver.receiveMatching(socket, sendMH, timeout);
 			} catch (SocketTimeoutException ste) {
 				if (elapsed < maxWaitTimeMs) {
 					LOGGER.debug("RFC 5780 Binding Request timeout to {}:{}. Retrying...", targetIP.getHostAddress(), targetPort);
