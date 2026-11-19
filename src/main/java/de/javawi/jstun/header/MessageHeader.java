@@ -187,7 +187,8 @@ public class MessageHeader implements MessageHeaderInterface {
 	public void parseAttributes(byte[] data) throws MessageAttributeParsingException {
 		try {
 			if (data.length < 20) {
-				throw new MessageAttributeParsingException("Data array too short");
+				throw new MessageAttributeParsingException(
+						"Data array too short: expected at least 20 bytes, actual " + data.length + " bytes");
 			}
 			byte[] lengthArray = new byte[2];
 			System.arraycopy(data, 2, lengthArray, 0, 2);
@@ -198,7 +199,9 @@ public class MessageHeader implements MessageHeaderInterface {
 			int offset = 20;
 			while (length > 0) {
 				if (length < 4 || (offset + length) > data.length) {
-					throw new MessageAttributeParsingException("Data array too short");
+					throw new MessageAttributeParsingException(
+							"Data array too short: expected " + (offset + length) + " bytes, actual " + data.length
+									+ " bytes (remaining payload length=" + length + ")");
 				}
 				cuttedData = new byte[length];
 				System.arraycopy(data, offset, cuttedData, 0, length);

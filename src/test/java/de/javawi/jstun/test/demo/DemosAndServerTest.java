@@ -113,5 +113,35 @@ public class DemosAndServerTest {
 				rootHandlers[i].setLevel(savedRootLevels[i]);
 			}
 		}
+
+		// Configurable stats interval
+		assertEquals(StunServer.DEFAULT_STATS_INTERVAL_SECONDS, StunServer.resolveStatsIntervalSeconds(null));
+		assertEquals(StunServer.DEFAULT_STATS_INTERVAL_SECONDS, StunServer.resolveStatsIntervalSeconds(""));
+		assertEquals(StunServer.DEFAULT_STATS_INTERVAL_SECONDS, StunServer.resolveStatsIntervalSeconds("not-a-number"));
+		assertEquals(0L, StunServer.resolveStatsIntervalSeconds("0"));
+		assertEquals(30L, StunServer.resolveStatsIntervalSeconds("30"));
+
+		// Named receiver threads
+		InetAddress loopback = InetAddress.getByName("127.0.0.1");
+		int[] ports = new int[4];
+		java.net.DatagramSocket[] tempSockets = new java.net.DatagramSocket[4];
+		for (int i = 0; i < 4; i++) {
+			tempSockets[i] = new java.net.DatagramSocket(0, loopback);
+			ports[i] = tempSockets[i].getLocalPort();
+		}
+		for (java.net.DatagramSocket s : tempSockets) {
+			s.close();
+		}
+		StunServer server = new StunServer(ports[0], loopback, ports[1], loopback, ports[2], ports[3]);
+		server.setStatsIntervalSeconds(1);
+		server.start();
+		try {
+			assertEquals(4, server.getReceiverThreads().size());
+			for (StunServer.StunServerReceiverThread t : server.getReceiverThreads()) {
+				assertTrue(t.getName().startsWith("stun-recv-127.0.0.1:"), "Unexpected thread name: " + t.getName());
+			}
+		} finally {
+			server.stop();
+		}
 	}
 }
