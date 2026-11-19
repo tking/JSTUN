@@ -71,7 +71,10 @@ public class MessageIntegritySha256 extends MessageAttribute {
 
 	public static byte[] computeShortTermHMAC(byte[] messagePrefixWithoutIntegrity, String password)
 			throws UtilityException {
-		byte[] key = (password != null ? password : "").getBytes(StandardCharsets.UTF_8);
+		if (password == null || password.isEmpty()) {
+			throw new UtilityException("HMAC password must not be null or empty");
+		}
+		byte[] key = password.getBytes(StandardCharsets.UTF_8);
 		return computeHMAC(messagePrefixWithoutIntegrity, key);
 	}
 
@@ -99,6 +102,9 @@ public class MessageIntegritySha256 extends MessageAttribute {
 	public static byte[] computeHMAC(byte[] messagePrefixWithoutIntegrity, byte[] key) throws UtilityException {
 		if (messagePrefixWithoutIntegrity == null || messagePrefixWithoutIntegrity.length < 20) {
 			throw new UtilityException("Message prefix too short for STUN header");
+		}
+		if (key == null || key.length == 0) {
+			throw new UtilityException("HMAC key must not be null or empty");
 		}
 		byte[] copy = new byte[messagePrefixWithoutIntegrity.length];
 		System.arraycopy(messagePrefixWithoutIntegrity, 0, copy, 0, messagePrefixWithoutIntegrity.length);
@@ -129,9 +135,9 @@ public class MessageIntegritySha256 extends MessageAttribute {
 
 	public static MessageIntegritySha256 parse(byte[] data) throws MessageAttributeParsingException {
 		try {
-			if (data.length != HMAC_LENGTH) {
+			if (data == null || data.length != HMAC_LENGTH) {
 				throw new MessageAttributeParsingException(
-						"Invalid length for MESSAGE-INTEGRITY-SHA256: " + data.length);
+						"Invalid length for MESSAGE-INTEGRITY-SHA256: " + (data == null ? "null" : data.length));
 			}
 			LOGGER.debug("Message Attribute: Message Integrity SHA-256 parsed (32-byte HMAC-SHA256).");
 			return new MessageIntegritySha256(Arrays.copyOf(data, HMAC_LENGTH));

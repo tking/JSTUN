@@ -14,7 +14,6 @@ package de.javawi.jstun.attribute;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
-import java.util.Arrays;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -62,6 +61,9 @@ public class MessageIntegrity extends MessageAttribute {
 
 	public static byte[] computeShortTermHMAC(byte[] messagePrefixWithoutIntegrity, String password)
 			throws UtilityException {
+		if (password == null || password.isEmpty()) {
+			throw new UtilityException("HMAC password must not be null or empty");
+		}
 		return computeHMAC(messagePrefixWithoutIntegrity, password.getBytes(StandardCharsets.UTF_8));
 	}
 
@@ -80,6 +82,9 @@ public class MessageIntegrity extends MessageAttribute {
 	public static byte[] computeHMAC(byte[] messagePrefixWithoutIntegrity, byte[] key) throws UtilityException {
 		if (messagePrefixWithoutIntegrity == null || messagePrefixWithoutIntegrity.length < 20) {
 			throw new UtilityException("Message prefix too short for STUN header");
+		}
+		if (key == null || key.length == 0) {
+			throw new UtilityException("HMAC key must not be null or empty");
 		}
 		try {
 			byte[] copy = new byte[messagePrefixWithoutIntegrity.length];
@@ -100,18 +105,19 @@ public class MessageIntegrity extends MessageAttribute {
 
 	public boolean verifyShortTerm(byte[] messagePrefixWithoutIntegrity, String password) throws UtilityException {
 		byte[] expected = computeShortTermHMAC(messagePrefixWithoutIntegrity, password);
-		return Arrays.equals(this.hmac, expected);
+		return MessageDigest.isEqual(this.hmac, expected);
 	}
 
 	public boolean verifyLongTerm(byte[] messagePrefixWithoutIntegrity, String username, String realm, String password)
 			throws UtilityException {
 		byte[] expected = computeLongTermHMAC(messagePrefixWithoutIntegrity, username, realm, password);
-		return Arrays.equals(this.hmac, expected);
+		return MessageDigest.isEqual(this.hmac, expected);
 	}
 
 	public static MessageIntegrity parse(byte[] data) throws MessageAttributeParsingException {
-		if (data == null || data.length < 20) {
-			throw new MessageAttributeParsingException("Data array too short for MessageIntegrity");
+		if (data == null || data.length != 20) {
+			throw new MessageAttributeParsingException(
+					"Invalid length for MessageIntegrity: " + (data == null ? "null" : data.length));
 		}
 		MessageIntegrity mi = new MessageIntegrity();
 		System.arraycopy(data, 0, mi.hmac, 0, 20);
