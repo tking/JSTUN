@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.net.InetAddress;
 import java.nio.file.Path;
 import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 import org.junit.jupiter.api.Test;
@@ -79,8 +81,37 @@ public class DemosAndServerTest {
 		try {
 			assertNotNull(handler);
 			assertInstanceOf(SimpleFormatter.class, handler.getFormatter());
+			assertEquals(Level.INFO, handler.getLevel());
 		} finally {
 			handler.close();
+		}
+
+		// Configurable log level via -Djstun.log.level
+		assertEquals(Level.INFO, StunServer.resolveLogLevel(null));
+		assertEquals(Level.INFO, StunServer.resolveLogLevel(""));
+		assertEquals(Level.INFO, StunServer.resolveLogLevel("INVALID_LEVEL"));
+		assertEquals(Level.ALL, StunServer.resolveLogLevel("ALL"));
+		assertEquals(Level.FINE, StunServer.resolveLogLevel("fine"));
+
+		Logger testLogger = Logger.getLogger("de.javawi.jstun.test.logconfig");
+		Logger rootLogger = Logger.getLogger("");
+		java.util.logging.Handler[] rootHandlers = rootLogger.getHandlers();
+		Level[] savedRootLevels = new Level[rootHandlers.length];
+		for (int i = 0; i < rootHandlers.length; i++) {
+			savedRootLevels[i] = rootHandlers[i].getLevel();
+		}
+		FileHandler allHandler = StunServer.createLogFileHandler(tempDir.resolve("logging_all.%g.txt").toString(), Level.ALL);
+		try {
+			Level applied = StunServer.configureLogging(testLogger, allHandler, "ALL");
+			assertEquals(Level.ALL, applied);
+			assertEquals(Level.ALL, testLogger.getLevel());
+			assertEquals(Level.ALL, allHandler.getLevel());
+		} finally {
+			testLogger.removeHandler(allHandler);
+			allHandler.close();
+			for (int i = 0; i < rootHandlers.length; i++) {
+				rootHandlers[i].setLevel(savedRootLevels[i]);
+			}
 		}
 	}
 }

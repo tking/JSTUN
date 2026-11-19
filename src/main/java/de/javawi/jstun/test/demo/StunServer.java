@@ -59,6 +59,8 @@ public class StunServer {
 	static final int LOG_FILE_LIMIT_BYTES = 10 * 1024 * 1024;
 	static final int LOG_FILE_COUNT = 5;
 	static final String LOG_FILE_PATTERN = "logging_server.%g.txt";
+	static final String LOG_LEVEL_PROPERTY = "jstun.log.level";
+	static final Level DEFAULT_LOG_LEVEL = Level.INFO;
 	Vector<DatagramSocket> sockets;
 	private final Vector<StunServerReceiverThread> receiverThreads = new Vector<StunServerReceiverThread>();
 	private volatile boolean doRun;
@@ -375,10 +377,39 @@ public class StunServer {
 		}
 	}
 	
+	static Level resolveLogLevel(String levelName) {
+		if (levelName == null || levelName.trim().isEmpty()) {
+			return DEFAULT_LOG_LEVEL;
+		}
+		try {
+			return Level.parse(levelName.trim().toUpperCase(java.util.Locale.ROOT));
+		} catch (IllegalArgumentException e) {
+			LOGGER.warn("Invalid {} value '{}'; falling back to {}.", LOG_LEVEL_PROPERTY, levelName, DEFAULT_LOG_LEVEL);
+			return DEFAULT_LOG_LEVEL;
+		}
+	}
+
 	static FileHandler createLogFileHandler(String pattern) throws IOException {
+		return createLogFileHandler(pattern, DEFAULT_LOG_LEVEL);
+	}
+
+	static FileHandler createLogFileHandler(String pattern, Level level) throws IOException {
 		FileHandler fh = new FileHandler(pattern, LOG_FILE_LIMIT_BYTES, LOG_FILE_COUNT, true);
 		fh.setFormatter(new SimpleFormatter());
+		fh.setLevel(level);
 		return fh;
+	}
+
+	static Level configureLogging(java.util.logging.Logger julLogger, Handler fileHandler, String levelName) {
+		Level logLevel = resolveLogLevel(levelName);
+		fileHandler.setLevel(logLevel);
+		julLogger.addHandler(fileHandler);
+		julLogger.setLevel(logLevel);
+		java.util.logging.Logger rootLogger = java.util.logging.Logger.getLogger("");
+		for (Handler h : rootLogger.getHandlers()) {
+			h.setLevel(logLevel);
+		}
+		return logLevel;
 	}
 
 	/*
@@ -395,10 +426,10 @@ public class StunServer {
 				System.out.println("   IP2 - the second ip address that should be used by the server");
 				System.exit(0);
 			}
-			Handler fh = createLogFileHandler(LOG_FILE_PATTERN);
-			java.util.logging.Logger julLogger = java.util.logging.Logger.getLogger("de.javawi.jstun");
-			julLogger.addHandler(fh);
-			julLogger.setLevel(Level.INFO);
+			String configuredLevel = System.getProperty(LOG_LEVEL_PROPERTY);
+			Level logLevel = resolveLogLevel(configuredLevel);
+			Handler fh = createLogFileHandler(LOG_FILE_PATTERN, logLevel);
+			configureLogging(java.util.logging.Logger.getLogger("de.javawi.jstun"), fh, configuredLevel);
 			StunServer ss = new StunServer(Integer.parseInt(args[0]), InetAddress.getByName(args[1]),
 										   Integer.parseInt(args[2]), InetAddress.getByName(args[3]));
 			LOGGER.info("Starting {}", JstunVersion.SOFTWARE);
