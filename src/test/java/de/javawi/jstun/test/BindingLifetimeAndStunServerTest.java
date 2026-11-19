@@ -12,7 +12,9 @@
 package de.javawi.jstun.test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.DatagramPacket;
@@ -51,18 +53,33 @@ import de.javawi.jstun.util.JstunVersion;
  */
 public class BindingLifetimeAndStunServerTest {
 
+	enum LifetimeServerMode {
+		NORMAL,
+		XOR_MAPPED_ONLY,
+		INITIAL_ERROR,
+		INITIAL_MISSING_MAPPED,
+		PROBE_ERROR,
+		ALWAYS_TIMEOUT,
+		ALWAYS_SUCCEED
+	}
+
 	/**
-	 * Simulated STUN server for BindingLifetimeTest that allows the first N
-	 * RESPONSE-ADDRESS probes to succeed and drops subsequent probes (or vice versa)
-	 * to exercise both halves of the binary search algorithm.
+	 * Simulated STUN server for BindingLifetimeTest supporting multiple response
+	 * modes to exercise every branch of the binary search and error handling.
 	 */
 	static class SimulatedLifetimeServer implements AutoCloseable {
 		private final DatagramSocket socket;
 		private final AtomicBoolean running = new AtomicBoolean(true);
 		private final AtomicInteger responseAddressProbeCount = new AtomicInteger(0);
+		private final LifetimeServerMode mode;
 		private final Thread thread;
 
 		SimulatedLifetimeServer() throws Exception {
+			this(LifetimeServerMode.NORMAL);
+		}
+
+		SimulatedLifetimeServer(LifetimeServerMode mode) throws Exception {
+			this.mode = mode;
 			this.socket = new DatagramSocket(0, InetAddress.getByName("127.0.0.1"));
 			this.socket.setSoTimeout(30);
 			this.thread = new Thread(this::serve, "SimLifetimeServer");
@@ -90,21 +107,49 @@ public class BindingLifetimeAndStunServerTest {
 					ResponsePort rp = (ResponsePort) req.getMessageAttribute(MessageAttributeType.ResponsePort);
 					if (ra == null && rp == null) {
 						// Initial binding communication on initialSocket
+						if (mode == LifetimeServerMode.INITIAL_ERROR) {
+							MessageHeader err = new MessageHeader(MessageHeaderType.BindingErrorResponse);
+							err.setTransactionID(req.getTransactionID());
+							ErrorCode ec = new ErrorCode();
+							ec.setResponseCode(500);
+							err.addMessageAttribute(ec);
+							byte[] out = err.getBytes();
+							socket.send(new DatagramPacket(out, out.length, pkt.getAddress(), pkt.getPort()));
+							continue;
+						}
 						MessageHeader resp = new MessageHeader(MessageHeaderType.BindingResponse);
 						resp.setTransactionID(req.getTransactionID());
-						MappedAddress ma = new MappedAddress();
-						ma.setAddress(new Address(pkt.getAddress().getAddress()));
-						ma.setPort(pkt.getPort());
-						resp.addMessageAttribute(ma);
+						if (mode == LifetimeServerMode.XOR_MAPPED_ONLY) {
+							XorMappedAddress xma = new XorMappedAddress(req.getTransactionID());
+							xma.setAddress(new Address(pkt.getAddress().getAddress()));
+							xma.setPort(pkt.getPort());
+							resp.addMessageAttribute(xma);
+						} else if (mode != LifetimeServerMode.INITIAL_MISSING_MAPPED) {
+							MappedAddress ma = new MappedAddress();
+							ma.setAddress(new Address(pkt.getAddress().getAddress()));
+							ma.setPort(pkt.getPort());
+							resp.addMessageAttribute(ma);
+						}
 						byte[] out = resp.getBytes();
 						socket.send(new DatagramPacket(out, out.length, pkt.getAddress(), pkt.getPort()));
 					} else {
 						// Probe from secondary socket with RESPONSE-ADDRESS or RESPONSE-PORT pointing to initialSocket
 						int probeNum = responseAddressProbeCount.incrementAndGet();
-						// Probe 1 succeeds (raises lower bound), Probe 2 times out (lowers upper bound), Probe 3+ succeeds
-						if (probeNum != 2) {
-							InetAddress targetIp = (ra != null) ? ra.getAddress().getInetAddress() : pkt.getAddress();
-							int targetPort = (ra != null) ? ra.getPort() : rp.getPort();
+						InetAddress targetIp = (ra != null) ? ra.getAddress().getInetAddress() : pkt.getAddress();
+						int targetPort = (ra != null) ? ra.getPort() : rp.getPort();
+						if (mode == LifetimeServerMode.PROBE_ERROR) {
+							MessageHeader err = new MessageHeader(MessageHeaderType.BindingErrorResponse);
+							err.setTransactionID(req.getTransactionID());
+							ErrorCode ec = new ErrorCode();
+							ec.setResponseCode(500);
+							err.addMessageAttribute(ec);
+							byte[] out = err.getBytes();
+							socket.send(new DatagramPacket(out, out.length, targetIp, targetPort));
+							continue;
+						}
+						boolean shouldRespond = (mode == LifetimeServerMode.ALWAYS_SUCCEED)
+								|| (mode != LifetimeServerMode.ALWAYS_TIMEOUT && probeNum != 2);
+						if (shouldRespond) {
 							MessageHeader resp = new MessageHeader(MessageHeaderType.BindingResponse);
 							resp.setTransactionID(req.getTransactionID());
 							MappedAddress ma = new MappedAddress();
@@ -168,6 +213,108 @@ public class BindingLifetimeAndStunServerTest {
 				}
 				assertTrue(blt.isCompleted());
 				assertEquals(2, blt.getLifetime());
+			} finally {
+				blt.close();
+			}
+		}
+	}
+
+	@Test
+	public void testBindingLifetimeErrorXorFallbackAndConvergenceBranches() throws Exception {
+		// close() before test() must be safe
+		BindingLifetimeTest unused = new BindingLifetimeTest("127.0.0.1", 3478);
+		unused.close();
+
+		// 1. Initial error response stops before scheduling timer
+		try (SimulatedLifetimeServer server = new SimulatedLifetimeServer(LifetimeServerMode.INITIAL_ERROR)) {
+			BindingLifetimeTest blt = new BindingLifetimeTest("127.0.0.1", server.getPort());
+			blt.setTimeout(50);
+			try {
+				blt.test();
+				assertFalse(blt.isCompleted());
+				assertEquals(-1, blt.getLifetime());
+			} finally {
+				blt.close();
+			}
+		}
+
+		// 2. Initial missing MAPPED-ADDRESS stops before scheduling timer
+		try (SimulatedLifetimeServer server = new SimulatedLifetimeServer(LifetimeServerMode.INITIAL_MISSING_MAPPED)) {
+			BindingLifetimeTest blt = new BindingLifetimeTest("127.0.0.1", server.getPort());
+			blt.setTimeout(50);
+			try {
+				blt.test();
+				assertFalse(blt.isCompleted());
+				assertEquals(-1, blt.getLifetime());
+			} finally {
+				blt.close();
+			}
+		}
+
+		// 3. XOR-MAPPED-ADDRESS fallback on initial response
+		try (SimulatedLifetimeServer server = new SimulatedLifetimeServer(LifetimeServerMode.XOR_MAPPED_ONLY)) {
+			BindingLifetimeTest blt = new BindingLifetimeTest("127.0.0.1", server.getPort());
+			blt.setUpperBinarySearchLifetime(4);
+			blt.setTimeout(30);
+			try {
+				blt.test();
+				long deadline = System.currentTimeMillis() + 3000;
+				while (!blt.isCompleted() && System.currentTimeMillis() < deadline) {
+					Thread.sleep(15);
+				}
+				assertTrue(blt.isCompleted());
+				assertEquals(2, blt.getLifetime());
+			} finally {
+				blt.close();
+			}
+		}
+
+		// 4. ErrorCode during lifetimeQuery() stops cleanly
+		try (SimulatedLifetimeServer server = new SimulatedLifetimeServer(LifetimeServerMode.PROBE_ERROR)) {
+			BindingLifetimeTest blt = new BindingLifetimeTest("127.0.0.1", server.getPort());
+			blt.setUpperBinarySearchLifetime(4);
+			blt.setTimeout(50);
+			try {
+				blt.test();
+				Thread.sleep(100);
+				assertFalse(blt.isCompleted());
+				assertEquals(-1, blt.getLifetime());
+			} finally {
+				blt.close();
+			}
+		}
+
+		// 5. All probes time out -> timeout convergence branch
+		try (SimulatedLifetimeServer server = new SimulatedLifetimeServer(LifetimeServerMode.ALWAYS_TIMEOUT)) {
+			BindingLifetimeTest blt = new BindingLifetimeTest("127.0.0.1", server.getPort());
+			blt.setUpperBinarySearchLifetime(4);
+			blt.setTimeout(25);
+			try {
+				blt.test();
+				long deadline = System.currentTimeMillis() + 3000;
+				while (!blt.isCompleted() && System.currentTimeMillis() < deadline) {
+					Thread.sleep(15);
+				}
+				assertTrue(blt.isCompleted());
+				assertEquals(-1, blt.getLifetime());
+			} finally {
+				blt.close();
+			}
+		}
+
+		// 6. All probes succeed -> success convergence branch
+		try (SimulatedLifetimeServer server = new SimulatedLifetimeServer(LifetimeServerMode.ALWAYS_SUCCEED)) {
+			BindingLifetimeTest blt = new BindingLifetimeTest("127.0.0.1", server.getPort());
+			blt.setUpperBinarySearchLifetime(4);
+			blt.setTimeout(25);
+			try {
+				blt.test();
+				long deadline = System.currentTimeMillis() + 3000;
+				while (!blt.isCompleted() && System.currentTimeMillis() < deadline) {
+					Thread.sleep(15);
+				}
+				assertTrue(blt.isCompleted());
+				assertEquals(3, blt.getLifetime());
 			} finally {
 				blt.close();
 			}
@@ -419,6 +566,83 @@ public class BindingLifetimeAndStunServerTest {
 		} finally {
 			server.stop();
 			server.stop(); // idempotent
+		}
+	}
+
+	@Test
+	public void testStunServerEdgeCasesPaddingBoundsAndParseErrors() throws Exception {
+		InetAddress loopback = InetAddress.getByName("127.0.0.1");
+		int[] ports = findFourFreePorts(loopback);
+		StunServer server = new StunServer(ports[0], loopback, ports[1], loopback, ports[2], ports[3]);
+		server.setStatsIntervalSeconds(0);
+		server.start();
+
+		try (DatagramSocket client = new DatagramSocket(0, loopback)) {
+			client.setSoTimeout(1000);
+			client.setReceiveBufferSize(65536);
+			client.setSendBufferSize(65536);
+
+			// 1. Unsupported STUN header type (0x9999) -> MessageHeaderParsingException counted
+			byte[] badHeader = new byte[20];
+			badHeader[0] = (byte) 0x99;
+			badHeader[1] = (byte) 0x99;
+			client.send(new DatagramPacket(badHeader, badHeader.length, loopback, ports[0]));
+
+			// 2. Malformed ChangeRequest attribute (length 1 instead of 4) -> MessageAttributeParsingException counted
+			MessageHeader validHdr = new MessageHeader(MessageHeaderType.BindingRequest);
+			validHdr.generateTransactionID();
+			byte[] badAttr = new byte[28];
+			System.arraycopy(validHdr.getBytes(), 0, badAttr, 0, 20);
+			badAttr[2] = 0x00;
+			badAttr[3] = 0x08; // payload 8 bytes
+			badAttr[20] = 0x00;
+			badAttr[21] = 0x03; // CHANGE-REQUEST
+			badAttr[22] = 0x00;
+			badAttr[23] = 0x01; // invalid length 1 (< 4)
+			client.send(new DatagramPacket(badAttr, badAttr.length, loopback, ports[0]));
+
+			// 3. Small PADDING (4 bytes) -> rawEchoPad < 0, response succeeds without echoing PADDING
+			MessageHeader smallPadReq = new MessageHeader(MessageHeaderType.BindingRequest);
+			smallPadReq.generateTransactionID();
+			smallPadReq.addMessageAttribute(new Padding(4));
+			byte[] smallPadBytes = smallPadReq.getBytesWithFingerprint();
+			client.send(new DatagramPacket(smallPadBytes, smallPadBytes.length, loopback, ports[0]));
+
+			DatagramPacket recvSmall = new DatagramPacket(new byte[512], 512);
+			client.receive(recvSmall);
+			byte[] smallRespRaw = java.util.Arrays.copyOf(recvSmall.getData(), recvSmall.getLength());
+			assertTrue(Fingerprint.verify(smallRespRaw));
+			MessageHeader smallResp = MessageHeader.parseHeader(smallRespRaw);
+			smallResp.parseAttributes(smallRespRaw);
+			assertEquals(MessageHeaderType.BindingResponse, smallResp.getType());
+			assertTrue(smallResp.equalTransactionID(smallPadReq));
+			assertNull(smallResp.getMessageAttribute(MessageAttributeType.Padding));
+
+			// 4. Oversized PADDING (9400 bytes) > MAX_ECHO_PACKET_SIZE (9216) -> echoed response capped <= 9216
+			MessageHeader hugePadReq = new MessageHeader(MessageHeaderType.BindingRequest);
+			hugePadReq.generateTransactionID();
+			hugePadReq.addMessageAttribute(new Padding(9400));
+			byte[] hugePadBytes = hugePadReq.getBytesWithFingerprint();
+			assertTrue(hugePadBytes.length > 9216);
+			client.send(new DatagramPacket(hugePadBytes, hugePadBytes.length, loopback, ports[0]));
+
+			DatagramPacket recvHuge = new DatagramPacket(new byte[10240], 10240);
+			client.receive(recvHuge);
+			byte[] hugeRespRaw = java.util.Arrays.copyOf(recvHuge.getData(), recvHuge.getLength());
+			assertTrue(Fingerprint.verify(hugeRespRaw));
+			assertTrue(hugeRespRaw.length <= 9216, "Echoed response must be capped at 9216, got " + hugeRespRaw.length);
+			assertTrue(hugeRespRaw.length >= 9000);
+			MessageHeader hugeResp = MessageHeader.parseHeader(hugeRespRaw);
+			hugeResp.parseAttributes(hugeRespRaw);
+			assertNotNull(hugeResp.getMessageAttribute(MessageAttributeType.Padding));
+
+			// Verify both parse errors and both padding requests were tracked
+			StunServer.StunServerStats stats = server.getStats();
+			assertEquals(2, stats.getDroppedParseError());
+			assertEquals(2, stats.getPaddingRequests());
+			assertEquals(2, stats.getBindingResponsesSent());
+		} finally {
+			server.stop();
 		}
 	}
 }

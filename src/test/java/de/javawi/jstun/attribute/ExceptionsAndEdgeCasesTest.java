@@ -225,4 +225,101 @@ public class ExceptionsAndEdgeCasesTest {
 		// integerToFourBytes validation (value < 0)
 		assertThrows(UtilityException.class, () -> Utility.integerToFourBytes(-1));
 	}
+
+	@Test
+	public void testXorMappedAddressAndBaseAddressEdgeCases() throws Exception {
+		// setTransactionID with null, 12-byte, 16-byte, and <12-byte arrays
+		XorMappedAddress xma = new XorMappedAddress();
+		xma.setTransactionID(null);
+		byte[] tx12 = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+		xma.setTransactionID(tx12);
+		byte[] copy = xma.getTransactionID();
+		assertArrayEquals(tx12, copy);
+		copy[0] ^= 0xFF; // defensive copy check
+		assertArrayEquals(tx12, xma.getTransactionID());
+
+		byte[] tx16 = new byte[] { 0x21, 0x12, (byte) 0xA4, 0x42, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+		xma.setTransactionID(tx16);
+		assertEquals(12, xma.getTransactionID()[0]);
+
+		// Short array (< 12 bytes) is ignored without throwing
+		xma.setTransactionID(new byte[] { 99, 98, 97 });
+		assertEquals(12, xma.getTransactionID()[0]);
+
+		// IPv4 round-trip via parse(byte[]) without transaction ID
+		xma.setAddress(new Address("192.0.2.1"));
+		xma.setPort(32853);
+		byte[] wireV4 = xma.getBytes();
+		byte[] valV4 = java.util.Arrays.copyOfRange(wireV4, 4, wireV4.length);
+		XorMappedAddress parsedV4 = (XorMappedAddress) XorMappedAddress.parse(valV4);
+		assertEquals(new Address("192.0.2.1"), parsedV4.getAddress());
+		assertEquals(32853, parsedV4.getPort());
+
+		// IPv6 round-trip via getBytes(tx16) and parse(val, tx16)
+		xma.setAddress(new Address("2001:db8::1"));
+		xma.setPort(54321);
+		byte[] wireV6 = xma.getBytes(tx16);
+		byte[] valV6 = java.util.Arrays.copyOfRange(wireV6, 4, wireV6.length);
+		XorMappedAddress parsedV6 = (XorMappedAddress) XorMappedAddress.parse(valV6, tx16);
+		assertEquals(new Address("2001:db8::1"), parsedV6.getAddress());
+		assertEquals(54321, parsedV6.getPort());
+
+		// XorMappedAddress.parse error branches
+		assertThrows(MessageAttributeParsingException.class, () -> XorMappedAddress.parse(new byte[7]));
+		byte[] badFamily = new byte[] { 0x00, 0x03, 0x00, 0x50, 1, 2, 3, 4 };
+		assertThrows(MessageAttributeParsingException.class, () -> XorMappedAddress.parse(badFamily));
+		byte[] truncatedV6 = new byte[12];
+		truncatedV6[1] = 0x02;
+		assertThrows(MessageAttributeParsingException.class, () -> XorMappedAddress.parse(truncatedV6, tx12));
+
+		// MappedResponseChangedSourceAddressReflectedFrom defaults, port bounds, and parsing errors
+		MappedResponseChangedSourceAddressReflectedFrom base = new MappedResponseChangedSourceAddressReflectedFrom();
+		assertEquals(0, base.getPort());
+		assertEquals(new Address("0.0.0.0"), base.getAddress());
+		assertTrue(base.toString().contains("0.0.0.0"));
+		base.setPort(0);
+		base.setPort(65535);
+		assertEquals(65535, base.getPort());
+		assertThrows(MessageAttributeException.class, () -> base.setPort(-1));
+		assertThrows(MessageAttributeException.class, () -> base.setPort(65537));
+		assertThrows(MessageAttributeParsingException.class, () -> MappedAddress.parse(new byte[7]));
+		assertThrows(MessageAttributeParsingException.class, () -> MappedAddress.parse(badFamily));
+	}
+
+	@Test
+	public void testMessageAttributeAndHeaderMappingsAndFingerprintReplacement() throws Exception {
+		// Round-trip every MessageAttributeType
+		for (MessageAttributeInterface.MessageAttributeType type : MessageAttributeInterface.MessageAttributeType.values()) {
+			int code = MessageAttribute.typeToInteger(type);
+			assertTrue(code >= 0, "Expected non-negative code for " + type);
+			assertEquals(type, MessageAttribute.intToType(code), "Round-trip mismatch for " + type);
+		}
+		assertEquals(-1, MessageAttribute.typeToInteger(null));
+		assertNull(MessageAttribute.intToType(0x9999));
+		assertEquals(MessageAttributeInterface.MessageAttributeType.XorMappedAddress,
+				MessageAttribute.intToType(MessageAttributeInterface.XORMAPPEDADDRESS_OPTIONAL));
+
+		// MessageHeader null/shared-secret/fingerprint replacement coverage
+		assertThrows(MessageHeaderParsingException.class, () -> MessageHeader.parseHeader(null));
+		assertEquals(-1, MessageHeader.typeToInteger(null));
+
+		for (MessageHeaderType hdrType : MessageHeaderType.values()) {
+			MessageHeader h = new MessageHeader(hdrType);
+			h.generateTransactionID();
+			byte[] raw = h.getBytes();
+			MessageHeader parsed = MessageHeader.parseHeader(raw);
+			assertEquals(hdrType, parsed.getType());
+		}
+
+		// getBytesWithFingerprint when a Fingerprint attribute is already attached
+		MessageHeader mh = new MessageHeader(MessageHeaderType.BindingRequest);
+		mh.generateTransactionID();
+		mh.addMessageAttribute(Software.jstun());
+		Fingerprint placeholder = new Fingerprint(0x12345678L);
+		mh.addMessageAttribute(placeholder);
+		byte[] wireWithFp = mh.getBytesWithFingerprint();
+		assertTrue(Fingerprint.verify(wireWithFp));
+		// Original placeholder must be restored in finally
+		assertSame(placeholder, mh.getMessageAttribute(MessageAttributeInterface.MessageAttributeType.Fingerprint));
+	}
 }

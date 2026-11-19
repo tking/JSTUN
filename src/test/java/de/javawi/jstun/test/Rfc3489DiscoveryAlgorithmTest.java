@@ -21,6 +21,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
@@ -51,13 +52,19 @@ public class Rfc3489DiscoveryAlgorithmTest {
 		SYMMETRIC_NAT,
 		RESTRICTED_CONE_NAT,
 		PORT_RESTRICTED_CONE_NAT,
-		RFC5389_XOR_AND_OTHER_ONLY_FULL_CONE
+		RFC5389_XOR_AND_OTHER_ONLY_FULL_CONE,
+		ERROR_ON_TEST2,
+		ERROR_ON_TEST1_REDO,
+		INCOMPLETE_ON_TEST1_REDO,
+		ERROR_ON_TEST3,
+		TRANSIENT_DROP_THEN_FULL_CONE
 	}
 
 	static class SimulatedRfc3489Server implements AutoCloseable {
 		private final DatagramSocket primarySocket;
 		private final DatagramSocket alternateSocket;
 		private final AtomicBoolean running = new AtomicBoolean(true);
+		private final AtomicInteger primaryPacketCount = new AtomicInteger(0);
 		private final Thread primaryThread;
 		private final Thread alternateThread;
 		private final SimulatedScenario scenario;
@@ -120,11 +127,27 @@ public class Rfc3489DiscoveryAlgorithmTest {
 						continue;
 					}
 
+					if (scenario == SimulatedScenario.TRANSIENT_DROP_THEN_FULL_CONE && isPrimary
+							&& !changeIP && !changePort && primaryPacketCount.incrementAndGet() == 1) {
+						// Drop first Test I attempt to exercise timeout retry backoff
+						continue;
+					}
+
 					// Test II: changeIP && changePort
 					if (changeIP && changePort) {
+						if (scenario == SimulatedScenario.ERROR_ON_TEST2) {
+							MessageHeader errResp = new MessageHeader(MessageHeaderType.BindingErrorResponse);
+							errResp.setTransactionID(req.getTransactionID());
+							ErrorCode ec = new ErrorCode();
+							ec.setResponseCode(500);
+							errResp.addMessageAttribute(ec);
+							sendPacket(alternateSocket, pkt.getAddress(), pkt.getPort(), errResp.getBytes());
+							continue;
+						}
 						if (scenario == SimulatedScenario.OPEN_ACCESS
 								|| scenario == SimulatedScenario.FULL_CONE_NAT
-								|| scenario == SimulatedScenario.RFC5389_XOR_AND_OTHER_ONLY_FULL_CONE) {
+								|| scenario == SimulatedScenario.RFC5389_XOR_AND_OTHER_ONLY_FULL_CONE
+								|| scenario == SimulatedScenario.TRANSIENT_DROP_THEN_FULL_CONE) {
 							MessageHeader resp = buildBindingResponse(req, pkt, isPrimary);
 							sendPacket(alternateSocket, pkt.getAddress(), pkt.getPort(), resp.getBytes());
 						}
@@ -134,11 +157,37 @@ public class Rfc3489DiscoveryAlgorithmTest {
 
 					// Test III: !changeIP && changePort
 					if (!changeIP && changePort) {
+						if (scenario == SimulatedScenario.ERROR_ON_TEST3) {
+							MessageHeader errResp = new MessageHeader(MessageHeaderType.BindingErrorResponse);
+							errResp.setTransactionID(req.getTransactionID());
+							ErrorCode ec = new ErrorCode();
+							ec.setResponseCode(500);
+							errResp.addMessageAttribute(ec);
+							sendPacket(alternateSocket, pkt.getAddress(), pkt.getPort(), errResp.getBytes());
+							continue;
+						}
 						if (scenario == SimulatedScenario.RESTRICTED_CONE_NAT) {
 							MessageHeader resp = buildBindingResponse(req, pkt, isPrimary);
 							sendPacket(alternateSocket, pkt.getAddress(), pkt.getPort(), resp.getBytes());
 						}
 						// For PORT_RESTRICTED_CONE_NAT: drop Test III
+						continue;
+					}
+
+					// Test I Redo error / incomplete branches (isPrimary == false)
+					if (!isPrimary && scenario == SimulatedScenario.ERROR_ON_TEST1_REDO) {
+						MessageHeader errResp = new MessageHeader(MessageHeaderType.BindingErrorResponse);
+						errResp.setTransactionID(req.getTransactionID());
+						ErrorCode ec = new ErrorCode();
+						ec.setResponseCode(500);
+						errResp.addMessageAttribute(ec);
+						sendPacket(sock, pkt.getAddress(), pkt.getPort(), errResp.getBytes());
+						continue;
+					}
+					if (!isPrimary && scenario == SimulatedScenario.INCOMPLETE_ON_TEST1_REDO) {
+						MessageHeader resp = new MessageHeader(MessageHeaderType.BindingResponse);
+						resp.setTransactionID(req.getTransactionID());
+						sendPacket(sock, pkt.getAddress(), pkt.getPort(), resp.getBytes());
 						continue;
 					}
 
@@ -325,5 +374,25 @@ public class Rfc3489DiscoveryAlgorithmTest {
 		assertTrue(runFastDiscoveryTest(SimulatedScenario.SYMMETRIC_NAT).isSymmetric());
 		assertTrue(runFastDiscoveryTest(SimulatedScenario.RESTRICTED_CONE_NAT).isRestrictedCone());
 		assertTrue(runFastDiscoveryTest(SimulatedScenario.PORT_RESTRICTED_CONE_NAT).isPortRestrictedCone());
+		assertTrue(runFastDiscoveryTest(SimulatedScenario.ERROR_RESPONSE).isError());
+		assertTrue(runFastDiscoveryTest(SimulatedScenario.INCOMPLETE_RESPONSE).isError());
+		assertTrue(runFastDiscoveryTest(SimulatedScenario.RFC5389_XOR_AND_OTHER_ONLY_FULL_CONE).isFullCone());
+	}
+
+	@Test
+	public void testDiscoveryAndFastDiscoveryLaterPhaseErrorsAndRetries() throws Exception {
+		// DiscoveryTest error handling in Test II, Test I Redo, Test III, and retry backoff
+		assertTrue(runDiscoveryTest(SimulatedScenario.ERROR_ON_TEST2).isError());
+		assertTrue(runDiscoveryTest(SimulatedScenario.ERROR_ON_TEST1_REDO).isError());
+		assertTrue(runDiscoveryTest(SimulatedScenario.INCOMPLETE_ON_TEST1_REDO).isError());
+		assertTrue(runDiscoveryTest(SimulatedScenario.ERROR_ON_TEST3).isError());
+		assertTrue(runDiscoveryTest(SimulatedScenario.TRANSIENT_DROP_THEN_FULL_CONE).isFullCone());
+
+		// FastDiscoveryTest error handling in Test II, Test I Redo, Test III, and retry backoff
+		assertTrue(runFastDiscoveryTest(SimulatedScenario.ERROR_ON_TEST2).isError());
+		assertTrue(runFastDiscoveryTest(SimulatedScenario.ERROR_ON_TEST1_REDO).isError());
+		assertTrue(runFastDiscoveryTest(SimulatedScenario.INCOMPLETE_ON_TEST1_REDO).isError());
+		assertTrue(runFastDiscoveryTest(SimulatedScenario.ERROR_ON_TEST3).isError());
+		assertTrue(runFastDiscoveryTest(SimulatedScenario.TRANSIENT_DROP_THEN_FULL_CONE).isFullCone());
 	}
 }
