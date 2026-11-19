@@ -227,13 +227,7 @@ public class FastDiscoveryTest {
 				socketTest1.send(send);
 				LOGGER.debug("Test 1: Binding Request sent.");
 
-				MessageHeader receiveMH = new MessageHeader();
-				while (!(receiveMH.equalTransactionID(sendMH))) {
-					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
-					socketTest1.receive(receive);
-					receiveMH = MessageHeader.parseHeader(receive.getData());
-					receiveMH.parseAttributes(receive.getData());
-				}
+				MessageHeader receiveMH = StunSocketReceiver.receiveMatching(socketTest1, sendMH, timeout);
 				ma = extractMappedAddress(receiveMH);
 				ca = extractChangedAddress(receiveMH);
 				ErrorCode ec = (ErrorCode) receiveMH
@@ -303,13 +297,7 @@ public class FastDiscoveryTest {
 					socket.send(send);
 					LOGGER.debug("Test 2: Binding Request sent.");
 
-					MessageHeader receiveMH = new MessageHeader();
-					while (!(receiveMH.equalTransactionID(sendMH))) {
-						DatagramPacket receive = new DatagramPacket(new byte[512], 512);
-						socket.receive(receive);
-						receiveMH = MessageHeader.parseHeader(receive.getData());
-						receiveMH.parseAttributes(receive.getData());
-					}
+					MessageHeader receiveMH = StunSocketReceiver.receiveMatching(socket, sendMH, timeout);
 					ErrorCode ec = (ErrorCode) receiveMH
 							.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
 					if (ec != null) {
@@ -358,13 +346,7 @@ public class FastDiscoveryTest {
 				socketTest1.send(send);
 				LOGGER.debug("Test 1 redo with changed address: Binding Request sent.");
 
-				MessageHeader receiveMH = new MessageHeader();
-				while (!(receiveMH.equalTransactionID(sendMH))) {
-					DatagramPacket receive = new DatagramPacket(new byte[512], 512);
-					socketTest1.receive(receive);
-					receiveMH = MessageHeader.parseHeader(receive.getData());
-					receiveMH.parseAttributes(receive.getData());
-				}
+				MessageHeader receiveMH = StunSocketReceiver.receiveMatching(socketTest1, sendMH, timeout);
 				MappedAddress ma2 = extractMappedAddress(receiveMH);
 				ErrorCode ec = (ErrorCode) receiveMH
 						.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
@@ -426,13 +408,7 @@ public class FastDiscoveryTest {
 					socket.send(send);
 					LOGGER.debug("Test 3: Binding Request sent.");
 
-					MessageHeader receiveMH = new MessageHeader();
-					while (!(receiveMH.equalTransactionID(sendMH))) {
-						DatagramPacket receive = new DatagramPacket(new byte[512], 512);
-						socket.receive(receive);
-						receiveMH = MessageHeader.parseHeader(receive.getData());
-						receiveMH.parseAttributes(receive.getData());
-					}
+					MessageHeader receiveMH = StunSocketReceiver.receiveMatching(socket, sendMH, timeout);
 					ErrorCode ec = (ErrorCode) receiveMH
 							.getMessageAttribute(MessageAttribute.MessageAttributeType.ErrorCode);
 					if (ec != null) {
