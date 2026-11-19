@@ -400,8 +400,25 @@ public class BindingLifetimeAndStunServerTest {
 			resp10.parseAttributes(recv10.getData());
 			assertEquals(MessageHeaderType.BindingResponse, resp10.getType());
 			assertTrue(resp10.equalTransactionID(req10));
+
+			// Verify server observability counters
+			StunServer.StunServerStats stats = server.getStats();
+			assertTrue(stats.getPacketsReceived() >= 10);
+			assertTrue(stats.getBytesReceived() > 0);
+			assertTrue(stats.getBindingRequests() >= 8);
+			assertEquals(3, stats.getChangeRequests());
+			assertEquals(1, stats.getResponsePortRequests());
+			assertEquals(1, stats.getResponseAddressRequests());
+			assertEquals(1, stats.getPaddingRequests());
+			assertTrue(stats.getBindingResponsesSent() >= 8);
+			assertEquals(1, stats.getBindingErrorsSent());
+			assertEquals(1, stats.getDroppedInvalidFingerprint());
+			assertEquals(1, stats.getDroppedParseError());
+			assertTrue(stats.getBytesSent() > 0);
+			assertTrue(stats.formatSummary().contains("packetsIn="));
 		} finally {
 			server.stop();
+			server.stop(); // idempotent
 		}
 	}
 }

@@ -105,9 +105,9 @@ Or using the standard library JAR with SLF4J on the classpath:
 java -cp jstun-1.0.4.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.StunServer PORT1 IP1 PORT2 IP2
 ```
-Server logs rotate automatically (`logging_server.%g.txt`, 10 MB × 5 files) at `INFO` by default. To change the log level (e.g., `FINE` or `ALL`), pass `-Djstun.log.level`:
+Server logs rotate automatically (`logging_server.%g.txt`, 10 MB × 5 files) at `INFO` by default, and periodic traffic/error counters are logged every `60` seconds (`-Djstun.stats.interval=0` disables periodic stats). To change the log level (e.g., `FINE` or `ALL`), pass `-Djstun.log.level`:
 ```bash
-java -Djstun.log.level=ALL -jar jstun-1.0.4-server.jar PORT1 IP1 PORT2 IP2
+java -Djstun.log.level=ALL -Djstun.stats.interval=60 -jar jstun-1.0.4-server.jar PORT1 IP1 PORT2 IP2
 ```
 
 

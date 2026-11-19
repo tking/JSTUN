@@ -14,6 +14,10 @@ package de.javawi.jstun.test.demo;
 import java.io.IOException;
 import java.net.*;
 import java.util.Vector;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -61,9 +65,78 @@ public class StunServer {
 	static final String LOG_FILE_PATTERN = "logging_server.%g.txt";
 	static final String LOG_LEVEL_PROPERTY = "jstun.log.level";
 	static final Level DEFAULT_LOG_LEVEL = Level.INFO;
+	static final String STATS_INTERVAL_PROPERTY = "jstun.stats.interval";
+	static final long DEFAULT_STATS_INTERVAL_SECONDS = 60L;
 	Vector<DatagramSocket> sockets;
 	private final Vector<StunServerReceiverThread> receiverThreads = new Vector<StunServerReceiverThread>();
+	private final StunServerStats stats = new StunServerStats();
+	private ScheduledExecutorService statsScheduler;
+	private long statsIntervalSeconds = resolveStatsIntervalSeconds(System.getProperty(STATS_INTERVAL_PROPERTY));
 	private volatile boolean doRun;
+
+	/**
+	 * Lightweight, zero-dependency server counters exposed for periodic logging and tests.
+	 */
+	public static final class StunServerStats {
+		final AtomicLong packetsReceived = new AtomicLong();
+		final AtomicLong bytesReceived = new AtomicLong();
+		final AtomicLong bindingRequests = new AtomicLong();
+		final AtomicLong bindingIndications = new AtomicLong();
+		final AtomicLong changeRequests = new AtomicLong();
+		final AtomicLong paddingRequests = new AtomicLong();
+		final AtomicLong responsePortRequests = new AtomicLong();
+		final AtomicLong responseAddressRequests = new AtomicLong();
+		final AtomicLong bindingResponsesSent = new AtomicLong();
+		final AtomicLong bindingErrorsSent = new AtomicLong();
+		final AtomicLong bytesSent = new AtomicLong();
+		final AtomicLong droppedInvalidFingerprint = new AtomicLong();
+		final AtomicLong droppedParseError = new AtomicLong();
+		final AtomicLong droppedRuntimeError = new AtomicLong();
+
+		public long getPacketsReceived() { return packetsReceived.get(); }
+		public long getBytesReceived() { return bytesReceived.get(); }
+		public long getBindingRequests() { return bindingRequests.get(); }
+		public long getBindingIndications() { return bindingIndications.get(); }
+		public long getChangeRequests() { return changeRequests.get(); }
+		public long getPaddingRequests() { return paddingRequests.get(); }
+		public long getResponsePortRequests() { return responsePortRequests.get(); }
+		public long getResponseAddressRequests() { return responseAddressRequests.get(); }
+		public long getBindingResponsesSent() { return bindingResponsesSent.get(); }
+		public long getBindingErrorsSent() { return bindingErrorsSent.get(); }
+		public long getBytesSent() { return bytesSent.get(); }
+		public long getDroppedInvalidFingerprint() { return droppedInvalidFingerprint.get(); }
+		public long getDroppedParseError() { return droppedParseError.get(); }
+		public long getDroppedRuntimeError() { return droppedRuntimeError.get(); }
+
+		public String formatSummary() {
+			return "packetsIn=" + packetsReceived.get()
+					+ " bytesIn=" + bytesReceived.get()
+					+ " bindingReq=" + bindingRequests.get()
+					+ " bindingInd=" + bindingIndications.get()
+					+ " changeReq=" + changeRequests.get()
+					+ " paddingReq=" + paddingRequests.get()
+					+ " respPortReq=" + responsePortRequests.get()
+					+ " respAddrReq=" + responseAddressRequests.get()
+					+ " responsesOut=" + bindingResponsesSent.get()
+					+ " errors420=" + bindingErrorsSent.get()
+					+ " bytesOut=" + bytesSent.get()
+					+ " droppedBadFp=" + droppedInvalidFingerprint.get()
+					+ " droppedParse=" + droppedParseError.get()
+					+ " droppedRuntime=" + droppedRuntimeError.get();
+		}
+	}
+
+	public StunServerStats getStats() {
+		return stats;
+	}
+
+	public void setStatsIntervalSeconds(long statsIntervalSeconds) {
+		this.statsIntervalSeconds = statsIntervalSeconds;
+	}
+
+	Vector<StunServerReceiverThread> getReceiverThreads() {
+		return receiverThreads;
+	}
 	
 	public StunServer(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary) throws SocketException {
 		this(primaryPort, primary, secondaryPort, secondary, primaryPort, secondaryPort);
@@ -87,13 +160,29 @@ public class StunServer {
 			StunServerReceiverThread ssrt = new StunServerReceiverThread(socket);
 			receiverThreads.add(ssrt);
 			ssrt.start();
-			LOGGER.info("STUN Server receiver thread started on {}:{}.",
-					socket.getLocalAddress().getHostAddress(), socket.getLocalPort());
+			LOGGER.info("STUN Server receiver thread '{}' started on {}:{}.",
+					ssrt.getName(), socket.getLocalAddress().getHostAddress(), socket.getLocalPort());
+		}
+		if (statsIntervalSeconds > 0) {
+			statsScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+				Thread t = new Thread(r, "stun-stats-reporter");
+				t.setDaemon(true);
+				return t;
+			});
+			statsScheduler.scheduleAtFixedRate(
+					() -> LOGGER.info("STUN Server stats: {}", stats.formatSummary()),
+					statsIntervalSeconds, statsIntervalSeconds, TimeUnit.SECONDS);
 		}
 	}
 
 	public void stop() {
+		if (!doRun && (statsScheduler == null || statsScheduler.isShutdown())) {
+			return;
+		}
 		doRun = false;
+		if (statsScheduler != null) {
+			statsScheduler.shutdownNow();
+		}
 		final long start = System.currentTimeMillis();
 		for ( DatagramSocket socket : sockets ) {
 			socket.close();
@@ -118,7 +207,7 @@ public class StunServer {
 				}
 			}
 		}
-		LOGGER.info("STUN Server stopped.");
+		LOGGER.info("STUN Server stopped. Final stats: {}", stats.formatSummary());
 	}
 
 	/*
@@ -156,6 +245,7 @@ public class StunServer {
 		private final Software software = Software.jstun();
 
 		StunServerReceiverThread(DatagramSocket datagramSocket) {
+			super("stun-recv-" + datagramSocket.getLocalAddress().getHostAddress() + ":" + datagramSocket.getLocalPort());
 			this.receiverSocket = datagramSocket;
 			int idx = sockets.indexOf(receiverSocket);
 			if (idx >= 0 && sockets.size() == 4) {
@@ -217,33 +307,49 @@ public class StunServer {
 			byte[] receiveBuffer = new byte[RECEIVE_BUFFER_SIZE];
 			DatagramPacket receive = new DatagramPacket(receiveBuffer, receiveBuffer.length);
 			while (doRun) {
+				String sourceEndpoint = "unknown";
+				int packetLen = -1;
 				try {
 					receive.setData(receiveBuffer, 0, receiveBuffer.length);
 					receiverSocket.receive(receive);
-					LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " datagram received from " + receive.getAddress().getHostAddress() + ":" + receive.getPort());
-					byte[] packetData = new byte[receive.getLength()];
+					sourceEndpoint = receive.getAddress().getHostAddress() + ":" + receive.getPort();
+					packetLen = receive.getLength();
+					stats.packetsReceived.incrementAndGet();
+					stats.bytesReceived.addAndGet(packetLen);
+					LOGGER.debug("{}:{} datagram received from {} ({} bytes)", receiverAddress.getHostAddress(), receiverPort, sourceEndpoint, packetLen);
+					byte[] packetData = new byte[packetLen];
 					System.arraycopy(receiveBuffer, 0, packetData, 0, packetData.length);
 					MessageHeader receiveMH = MessageHeader.parseHeader(packetData); 
 					try {
 						receiveMH.parseAttributes(packetData);
 						if (receiveMH.getMessageAttribute(MessageAttributeType.Fingerprint) != null
 								&& !Fingerprint.verify(packetData)) {
-							LOGGER.warn("Invalid FINGERPRINT attribute in STUN packet from {}:{}; discarding packet.",
-									receive.getAddress().getHostAddress(), receive.getPort());
+							stats.droppedInvalidFingerprint.incrementAndGet();
+							LOGGER.warn("Invalid FINGERPRINT attribute in STUN packet ({} bytes) from {}; discarding packet.",
+									packetLen, sourceEndpoint);
 							continue;
 						}
 						if (receiveMH.getType() == MessageHeaderType.BindingIndication) {
-							LOGGER.debug("{}:{} Binding Indication received from {}:{}; no response sent per RFC 5389.",
-									receiverAddress.getHostAddress(), receiverPort,
-									receive.getAddress().getHostAddress(), receive.getPort());
+							stats.bindingIndications.incrementAndGet();
+							LOGGER.debug("{}:{} Binding Indication received from {}; no response sent per RFC 5389.",
+									receiverAddress.getHostAddress(), receiverPort, sourceEndpoint);
 						} else if (receiveMH.getType() == MessageHeaderType.BindingRequest) {
-							LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " Binding Request received from " + receive.getAddress().getHostAddress() + ":" + receive.getPort());
+							stats.bindingRequests.incrementAndGet();
+							LOGGER.debug("{}:{} Binding Request received from {}", receiverAddress.getHostAddress(), receiverPort, sourceEndpoint);
 							ChangeRequest cr = (ChangeRequest) receiveMH.getMessageAttribute(MessageAttributeType.ChangeRequest);
 							if (cr == null) {
 								cr = new ChangeRequest();
+							} else if (cr.isChangeIP() || cr.isChangePort()) {
+								stats.changeRequests.incrementAndGet();
 							}
 							ResponseAddress ra = (ResponseAddress) receiveMH.getMessageAttribute(MessageAttributeType.ResponseAddress);
 							ResponsePort rp = (ResponsePort) receiveMH.getMessageAttribute(MessageAttributeType.ResponsePort);
+							if (ra != null) {
+								stats.responseAddressRequests.incrementAndGet();
+							}
+							if (rp != null) {
+								stats.responsePortRequests.incrementAndGet();
+							}
 							int targetPort = (rp != null) ? rp.getPort() : receive.getPort();
 						
 							MessageHeader sendMH = new MessageHeader(MessageHeaderType.BindingResponse);
@@ -303,6 +409,7 @@ public class StunServer {
 
 							Padding reqPadding = (Padding) receiveMH.getMessageAttribute(MessageAttributeType.Padding);
 							if (reqPadding != null) {
+								stats.paddingRequests.incrementAndGet();
 								// RFC 5780 §4.6: echo PADDING up to the incoming request size (capped, zero amplification)
 								int baseLenWithFingerprint = sendMH.getBytesWithFingerprint().length;
 								int targetSize = Math.min(packetData.length, MAX_ECHO_PACKET_SIZE);
@@ -323,11 +430,15 @@ public class StunServer {
 								send.setAddress(receive.getAddress());
 							}
 							sendSocket.send(send);
-							LOGGER.debug(sendAddr.getHostAddress() + ":" + sendPort + " send Binding Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+							stats.bindingResponsesSent.incrementAndGet();
+							stats.bytesSent.addAndGet(data.length);
+							LOGGER.debug("{}:{} send Binding Response ({} bytes) to {}:{}",
+									sendAddr.getHostAddress(), sendPort, data.length,
+									send.getAddress().getHostAddress(), send.getPort());
 						}
 					} catch (UnknownMessageAttributeException umae) {
-						LOGGER.warn("Unknown mandatory message attribute {} received from {}:{}; sending Binding Error Response.",
-								umae.getType(), receive.getAddress().getHostAddress(), receive.getPort());
+						LOGGER.warn("Unknown mandatory message attribute {} received from {} ({} bytes); sending Binding Error Response.",
+								umae.getType(), sourceEndpoint, packetLen);
 						// Generate Binding error response
 						MessageHeader sendMH = new MessageHeader(MessageHeaderType.BindingErrorResponse);
 						sendMH.setTransactionID(receiveMH.getTransactionID());
@@ -348,7 +459,11 @@ public class StunServer {
 						send.setPort(receive.getPort());
 						send.setAddress(receive.getAddress());
 						receiverSocket.send(send);
-						LOGGER.debug(receiverAddress.getHostAddress() + ":" + receiverPort + " send Binding Error Response to " + send.getAddress().getHostAddress() + ":" + send.getPort());
+						stats.bindingErrorsSent.incrementAndGet();
+						stats.bytesSent.addAndGet(data.length);
+						LOGGER.debug("{}:{} send Binding Error Response ({} bytes) to {}:{}",
+								receiverAddress.getHostAddress(), receiverPort, data.length,
+								send.getAddress().getHostAddress(), send.getPort());
 					}
 				} catch (SocketTimeoutException ioe) {
 					// No data for SO_TIMEOUT milliseconds.
@@ -360,23 +475,48 @@ public class StunServer {
 				} catch (IOException ioe) {
 					LOGGER.error("IOException in STUN server receiver thread: {}", ioe.getMessage(), ioe);
 				} catch (MessageAttributeParsingException mape) {
-					LOGGER.warn("MessageAttributeParsingException while parsing incoming STUN packet: {}", mape.getMessage());
+					stats.droppedParseError.incrementAndGet();
+					LOGGER.warn("MessageAttributeParsingException while parsing STUN packet ({} bytes) from {}: {}",
+							packetLen, sourceEndpoint, mape.getMessage());
 				} catch (MessageAttributeException mae) {
-					LOGGER.warn("MessageAttributeException while processing STUN packet: {}", mae.getMessage());
+					stats.droppedParseError.incrementAndGet();
+					LOGGER.warn("MessageAttributeException while processing STUN packet ({} bytes) from {}: {}",
+							packetLen, sourceEndpoint, mae.getMessage());
 				} catch (MessageHeaderParsingException mhpe) {
-					LOGGER.warn("MessageHeaderParsingException while parsing incoming STUN packet: {}", mhpe.getMessage());
+					stats.droppedParseError.incrementAndGet();
+					LOGGER.warn("MessageHeaderParsingException while parsing STUN packet ({} bytes) from {}: {}",
+							packetLen, sourceEndpoint, mhpe.getMessage());
 				} catch (UtilityException ue) {
-					LOGGER.warn("UtilityException while processing STUN packet: {}", ue.getMessage());
+					stats.droppedParseError.incrementAndGet();
+					LOGGER.warn("UtilityException while processing STUN packet ({} bytes) from {}: {}",
+							packetLen, sourceEndpoint, ue.getMessage());
 				} catch (ArrayIndexOutOfBoundsException aioobe) {
-					LOGGER.warn("Malformed STUN packet caused ArrayIndexOutOfBoundsException: {}", aioobe.getMessage());
+					stats.droppedParseError.incrementAndGet();
+					LOGGER.warn("Malformed STUN packet ({} bytes) from {} caused ArrayIndexOutOfBoundsException: {}",
+							packetLen, sourceEndpoint, aioobe.getMessage());
 				} catch (RuntimeException re) {
-					LOGGER.warn("Unexpected RuntimeException while processing STUN packet: {}", re.getMessage(), re);
+					stats.droppedRuntimeError.incrementAndGet();
+					LOGGER.warn("Unexpected RuntimeException while processing STUN packet ({} bytes) from {}: {}",
+							packetLen, sourceEndpoint, re.getMessage(), re);
 				}
 			}
 			receiverSocket.close();
 		}
 	}
 	
+	static long resolveStatsIntervalSeconds(String intervalValue) {
+		if (intervalValue == null || intervalValue.trim().isEmpty()) {
+			return DEFAULT_STATS_INTERVAL_SECONDS;
+		}
+		try {
+			return Long.parseLong(intervalValue.trim());
+		} catch (NumberFormatException e) {
+			LOGGER.warn("Invalid {} value '{}'; falling back to {}s.",
+					STATS_INTERVAL_PROPERTY, intervalValue, DEFAULT_STATS_INTERVAL_SECONDS);
+			return DEFAULT_STATS_INTERVAL_SECONDS;
+		}
+	}
+
 	static Level resolveLogLevel(String levelName) {
 		if (levelName == null || levelName.trim().isEmpty()) {
 			return DEFAULT_LOG_LEVEL;
@@ -432,6 +572,10 @@ public class StunServer {
 			configureLogging(java.util.logging.Logger.getLogger("de.javawi.jstun"), fh, configuredLevel);
 			StunServer ss = new StunServer(Integer.parseInt(args[0]), InetAddress.getByName(args[1]),
 										   Integer.parseInt(args[2]), InetAddress.getByName(args[3]));
+			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+				LOGGER.info("Shutdown signal received; stopping STUN server...");
+				ss.stop();
+			}, "stun-shutdown-hook"));
 			LOGGER.info("Starting {}", JstunVersion.SOFTWARE);
 			ss.start();
 		} catch (SocketException se) {

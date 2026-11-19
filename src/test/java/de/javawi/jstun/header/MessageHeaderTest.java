@@ -104,4 +104,24 @@ public class MessageHeaderTest {
             MessageHeader.parseHeader(invalidData);
         });
     }
+
+    @Test
+    public void testParseAttributesIncludesExpectedAndActualLengthOnTruncation() throws Exception {
+        MessageHeader shortMh = new MessageHeader(MessageHeaderType.BindingRequest);
+        Exception shortEx = assertThrows(Exception.class, () -> shortMh.parseAttributes(new byte[12]));
+        assertTrue(shortEx.getMessage().contains("expected at least 20 bytes"));
+        assertTrue(shortEx.getMessage().contains("actual 12 bytes"));
+
+        MessageHeader req = new MessageHeader(MessageHeaderType.BindingRequest);
+        req.generateTransactionID();
+        byte[] truncated = new byte[24];
+        System.arraycopy(req.getBytes(), 0, truncated, 0, 20);
+        // Claim 100-byte payload when only 4 bytes follow the header
+        truncated[2] = 0x00;
+        truncated[3] = 0x64;
+        MessageHeader parsed = MessageHeader.parseHeader(truncated);
+        Exception truncEx = assertThrows(Exception.class, () -> parsed.parseAttributes(truncated));
+        assertTrue(truncEx.getMessage().contains("expected 120 bytes"));
+        assertTrue(truncEx.getMessage().contains("actual 24 bytes"));
+    }
 }
