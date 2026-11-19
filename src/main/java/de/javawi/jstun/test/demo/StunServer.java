@@ -144,11 +144,26 @@ public class StunServer {
 
 	public StunServer(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary,
 			int secondaryIpPrimaryPort, int secondaryIpSecondaryPort) throws SocketException {
+		if (primary == null || secondary == null) {
+			throw new IllegalArgumentException("Primary and secondary STUN server addresses must not be null");
+		}
+		if ((primary instanceof Inet6Address) != (secondary instanceof Inet6Address)) {
+			throw new IllegalArgumentException(
+					"Primary and secondary STUN server addresses must use the same IP address family (both IPv4 or both IPv6)");
+		}
 		sockets = new Vector<DatagramSocket>();
 		sockets.add(new DatagramSocket(primaryPort, primary));
 		sockets.add(new DatagramSocket(secondaryPort, primary));
 		sockets.add(new DatagramSocket(secondaryIpPrimaryPort, secondary));
 		sockets.add(new DatagramSocket(secondaryIpSecondaryPort, secondary));
+	}
+
+	static String formatEndpoint(InetAddress address, int port) {
+		String host = address.getHostAddress();
+		if (address instanceof Inet6Address) {
+			return "[" + host + "]:" + port;
+		}
+		return host + ":" + port;
 	}
 	
 	public void start() throws SocketException {
@@ -160,8 +175,8 @@ public class StunServer {
 			StunServerReceiverThread ssrt = new StunServerReceiverThread(socket);
 			receiverThreads.add(ssrt);
 			ssrt.start();
-			LOGGER.info("STUN Server receiver thread '{}' started on {}:{}.",
-					ssrt.getName(), socket.getLocalAddress().getHostAddress(), socket.getLocalPort());
+			LOGGER.info("STUN Server receiver thread '{}' started on {}.",
+					ssrt.getName(), formatEndpoint(socket.getLocalAddress(), socket.getLocalPort()));
 		}
 		if (statsIntervalSeconds > 0) {
 			statsScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -245,7 +260,7 @@ public class StunServer {
 		private final Software software = Software.jstun();
 
 		StunServerReceiverThread(DatagramSocket datagramSocket) {
-			super("stun-recv-" + datagramSocket.getLocalAddress().getHostAddress() + ":" + datagramSocket.getLocalPort());
+			super("stun-recv-" + formatEndpoint(datagramSocket.getLocalAddress(), datagramSocket.getLocalPort()));
 			this.receiverSocket = datagramSocket;
 			int idx = sockets.indexOf(receiverSocket);
 			if (idx >= 0 && sockets.size() == 4) {
@@ -312,7 +327,7 @@ public class StunServer {
 				try {
 					receive.setData(receiveBuffer, 0, receiveBuffer.length);
 					receiverSocket.receive(receive);
-					sourceEndpoint = receive.getAddress().getHostAddress() + ":" + receive.getPort();
+					sourceEndpoint = formatEndpoint(receive.getAddress(), receive.getPort());
 					packetLen = receive.getLength();
 					stats.packetsReceived.incrementAndGet();
 					stats.bytesReceived.addAndGet(packetLen);

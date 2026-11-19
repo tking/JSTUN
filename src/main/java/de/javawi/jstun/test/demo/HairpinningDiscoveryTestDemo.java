@@ -13,6 +13,7 @@ package de.javawi.jstun.test.demo;
 
 import java.net.BindException;
 import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
@@ -71,8 +72,8 @@ public class HairpinningDiscoveryTestDemo implements Runnable {
 				Enumeration<InetAddress> iaddresses = iface.getInetAddresses();
 				while (iaddresses.hasMoreElements()) {
 					InetAddress iaddress = iaddresses.nextElement();
-					if (iaddress instanceof Inet4Address) {
-						if ((!iaddress.isLoopbackAddress()) && (!iaddress.isLinkLocalAddress())) {
+					if ((iaddress instanceof Inet4Address) || (iaddress instanceof Inet6Address)) {
+						if ((!iaddress.isLoopbackAddress()) && (!iaddress.isLinkLocalAddress()) && (!iaddress.isMulticastAddress())) {
 							Thread thread = new Thread(new HairpinningDiscoveryTestDemo(iaddress));
 							thread.start();
 						}

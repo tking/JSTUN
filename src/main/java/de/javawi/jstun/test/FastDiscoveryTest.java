@@ -203,7 +203,7 @@ public class FastDiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
-		InetAddress serverAddress = InetAddress.getByName(stunServer);
+		InetAddress serverAddress = StunSocketReceiver.resolveServerAddress(stunServer, sourceIaddress);
 		if (socketTest1 != null) {
 			socketTest1.close();
 		}
@@ -274,7 +274,7 @@ public class FastDiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
-		InetAddress serverAddress = InetAddress.getByName(stunServer);
+		InetAddress serverAddress = StunSocketReceiver.resolveServerAddress(stunServer, sourceIaddress);
 
 		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
 		sendMH.generateTransactionID();
@@ -386,7 +386,7 @@ public class FastDiscoveryTest {
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		int timeSinceFirstTransmission = 0;
 		int timeout = timeoutInitValue;
-		InetAddress serverAddress = InetAddress.getByName(stunServer);
+		InetAddress serverAddress = StunSocketReceiver.resolveServerAddress(stunServer, sourceIaddress);
 
 		MessageHeader sendMH = new MessageHeader(MessageHeader.MessageHeaderType.BindingRequest);
 		sendMH.generateTransactionID();
