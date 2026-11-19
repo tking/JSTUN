@@ -292,5 +292,25 @@ public class AddressTest {
 		assertFalse(ipv4Address.equals(ipv6Address));
 		assertFalse(ipv4Address.equals(null));
 		assertFalse(ipv4Address.equals("192.168.100.1"));
+
+		// IPv4-mapped IPv6, IPv4-compatible IPv6, zone/scope IDs, and IPv6 hashCode distribution
+		Address mapped = new Address("::ffff:192.0.2.1");
+		assertEquals(16, mapped.getBytes().length);
+		assertEquals(new Address("0:0:0:0:0:ffff:c000:201"), mapped);
+		assertEquals(new Address("0:0:0:0:0:ffff:c000:201").hashCode(), mapped.hashCode());
+
+		Address compat = new Address("::192.0.2.1");
+		assertEquals(new Address("0:0:0:0:0:0:c000:201"), compat);
+		assertThrows(UtilityException.class, () -> new Address("::ffff:999.0.2.1"));
+		assertThrows(UtilityException.class, () -> new Address("notanaddress"));
+
+		Address withZone = new Address("fe80::1%en0");
+		assertEquals(linkLocalV6, withZone);
+
+		// Addresses differing across 4-byte boundaries should not trivially collide
+		Address v6A = new Address("1::");
+		Address v6B = new Address("0:0:1::");
+		assertFalse(v6A.equals(v6B));
+		assertTrue(v6A.hashCode() != v6B.hashCode());
 	}
 }

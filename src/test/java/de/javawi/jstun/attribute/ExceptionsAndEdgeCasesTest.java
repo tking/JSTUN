@@ -281,9 +281,15 @@ public class ExceptionsAndEdgeCasesTest {
 		base.setPort(65535);
 		assertEquals(65535, base.getPort());
 		assertThrows(MessageAttributeException.class, () -> base.setPort(-1));
-		assertThrows(MessageAttributeException.class, () -> base.setPort(65537));
+		assertThrows(MessageAttributeException.class, () -> base.setPort(65536));
 		assertThrows(MessageAttributeParsingException.class, () -> MappedAddress.parse(new byte[7]));
 		assertThrows(MessageAttributeParsingException.class, () -> MappedAddress.parse(badFamily));
+		// Family/length mismatch: IPv6 family with 8-byte (IPv4) payload, and IPv4 family with 20-byte (IPv6) payload
+		byte[] v6Short = new byte[] { 0x00, 0x02, 0x00, 0x50, 1, 2, 3, 4 };
+		assertThrows(MessageAttributeParsingException.class, () -> MappedAddress.parse(v6Short));
+		byte[] v4Long = new byte[20];
+		v4Long[1] = 0x01;
+		assertThrows(MessageAttributeParsingException.class, () -> MappedAddress.parse(v4Long));
 	}
 
 	@Test

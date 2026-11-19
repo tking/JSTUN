@@ -77,7 +77,7 @@ public class NatBehaviorDiscoveryTest {
 	public DiscoveryInfo test() throws UtilityException, SocketException, UnknownHostException, IOException,
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
 		DiscoveryInfo di = new DiscoveryInfo(sourceIaddress);
-		InetAddress primaryServerIP = InetAddress.getByName(stunServer);
+		InetAddress primaryServerIP = StunSocketReceiver.resolveServerAddress(stunServer, sourceIaddress);
 		LOGGER.debug("Starting RFC 5780 NAT behavior discovery from {}:{} against STUN server {}:{}.",
 				sourceIaddress.getHostAddress(), sourcePort, stunServer, stunServerPort);
 

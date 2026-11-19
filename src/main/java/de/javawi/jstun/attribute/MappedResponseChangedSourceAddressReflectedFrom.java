@@ -53,7 +53,7 @@ public class MappedResponseChangedSourceAddressReflectedFrom extends MessageAttr
 	}
 	
 	public void setPort(int port) throws MessageAttributeException {
-		if ((port > 65536) || (port < 0)) {
+		if ((port > 65535) || (port < 0)) {
 			throw new MessageAttributeException("Port value " + port + " out of range.");
 		}
 		this.port = port;
@@ -93,19 +93,27 @@ public class MappedResponseChangedSourceAddressReflectedFrom extends MessageAttr
 				throw new MessageAttributeParsingException("Data array too short");
 			}
 			int family = Utility.oneByteToInteger(data[1]);
-
-			if (family != 0x01 && family != 0x02) {
+			int expectedAddrLen;
+			if (family == 0x01) {
+				expectedAddrLen = 4;
+			} else if (family == 0x02) {
+				expectedAddrLen = 16;
+			} else {
 				// Family 1 is for IPv4, Family 2 is for IPv6
 				throw new MessageAttributeParsingException("Family " + family + " is not supported");
+			}
+			if (data.length != 4 + expectedAddrLen) {
+				throw new MessageAttributeParsingException(
+						"Invalid address length for family " + family + ": expected " + (4 + expectedAddrLen)
+								+ " bytes, actual " + data.length + " bytes");
 			}
 
 			byte[] portArray = new byte[2];
 			System.arraycopy(data, 2, portArray, 0, 2);
 			ma.setPort(Utility.twoBytesToInteger(portArray));
-			// Dynamically determine the address length (8 or 16)
 
-			int[] octets = new int[data.length - 4];
-			for (int i = 0; i < data.length - 4; i++) {
+			int[] octets = new int[expectedAddrLen];
+			for (int i = 0; i < expectedAddrLen; i++) {
 				octets[i] = Utility.oneByteToInteger(data[i + 4]);
 			}
 			ma.setAddress(new Address(octets));

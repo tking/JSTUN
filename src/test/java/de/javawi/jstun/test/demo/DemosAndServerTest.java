@@ -143,5 +143,16 @@ public class DemosAndServerTest {
 		} finally {
 			server.stop();
 		}
+
+		// Address-family mismatch and null validation in StunServer constructor
+		InetAddress ipv6Loopback = InetAddress.getByName("::1");
+		assertThrows(IllegalArgumentException.class, () -> new StunServer(0, loopback, 0, ipv6Loopback));
+		assertThrows(IllegalArgumentException.class, () -> new StunServer(0, null, 0, loopback));
+
+		// RFC 5952 IPv6 endpoint bracket formatting
+		assertEquals("127.0.0.1:3478", StunServer.formatEndpoint(loopback, 3478));
+		String v6Formatted = StunServer.formatEndpoint(ipv6Loopback, 3478);
+		assertTrue(v6Formatted.startsWith("[") && v6Formatted.endsWith("]:3478"),
+				"Expected bracketed IPv6 endpoint, got: " + v6Formatted);
 	}
 }

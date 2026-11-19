@@ -436,11 +436,13 @@ public class Rfc5780AttributesAndDiscoveryTest {
 			return;
 		}
 
+		assertEquals(1280, MtuDiscoveryTest.DEFAULT_MIN_IPV6_MTU);
 		try (SimulatedMtuServer ipv6Server = new SimulatedMtuServer(ipv6Loopback, 1420, false)) {
 			MtuDiscoveryTest mtuTest = new MtuDiscoveryTest(ipv6Loopback, "::1", ipv6Server.getPort());
 			mtuTest.setTimeoutInitValue(25);
 			mtuTest.setMaxWaitTimeMs(40);
 			assertEquals(1420, mtuTest.test(576, 3000));
+			assertEquals(1420, mtuTest.test());
 		}
 	}
 

@@ -80,7 +80,7 @@ public class HairpinningDiscoveryTest {
 	 */
 	public Boolean test() throws UtilityException, SocketException, UnknownHostException, IOException,
 			MessageAttributeParsingException, MessageAttributeException, MessageHeaderParsingException {
-		InetAddress serverIP = InetAddress.getByName(stunServer);
+		InetAddress serverIP = StunSocketReceiver.resolveServerAddress(stunServer, sourceIaddress);
 		LOGGER.debug("Starting RFC 5780 hairpinning discovery from {}:{} against {}:{}.",
 				sourceIaddress.getHostAddress(), sourcePort, stunServer, stunServerPort);
 

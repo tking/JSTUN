@@ -17,8 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
@@ -105,5 +108,22 @@ public class StunSocketReceiverTest {
 		} finally {
 			running.set(false);
 		}
+	}
+
+	@Test
+	public void testResolveServerAddressMatchesAddressFamily() throws Exception {
+		InetAddress v4Loopback = InetAddress.getByName("127.0.0.1");
+		InetAddress v6Loopback = InetAddress.getByName("::1");
+		InetAddress v4Wildcard = InetAddress.getByName("0.0.0.0");
+
+		assertTrue(StunSocketReceiver.resolveServerAddress("127.0.0.1", v4Loopback) instanceof Inet4Address);
+		assertTrue(StunSocketReceiver.resolveServerAddress("::1", v6Loopback) instanceof Inet6Address);
+		assertTrue(StunSocketReceiver.resolveServerAddress("127.0.0.1", null) instanceof Inet4Address);
+		assertTrue(StunSocketReceiver.resolveServerAddress("::1", v4Wildcard) instanceof Inet6Address);
+
+		assertThrows(UnknownHostException.class,
+				() -> StunSocketReceiver.resolveServerAddress("127.0.0.1", v6Loopback));
+		assertThrows(UnknownHostException.class,
+				() -> StunSocketReceiver.resolveServerAddress("::1", v4Loopback));
 	}
 }

@@ -41,6 +41,8 @@ import de.javawi.jstun.util.UtilityException;
 public class MtuDiscoveryTest {
 	private static final Logger LOGGER = LoggerFactory.getLogger(MtuDiscoveryTest.class);
 	public static final int DEFAULT_MIN_MTU = 576;
+	/** RFC 8200 §5 / RFC 5780 §4.6 minimum link MTU for IPv6. */
+	public static final int DEFAULT_MIN_IPV6_MTU = 1280;
 	/** Default upper bound supports Ethernet jumbo frames (9000-byte MTU). */
 	public static final int DEFAULT_MAX_MTU = 9000;
 	private static final int IPV4_UDP_OVERHEAD = 28;
@@ -80,7 +82,9 @@ public class MtuDiscoveryTest {
 	 */
 	public int test() throws UtilityException, SocketException, UnknownHostException, IOException,
 			MessageAttributeParsingException, MessageHeaderParsingException {
-		return test(DEFAULT_MIN_MTU, DEFAULT_MAX_MTU);
+		InetAddress primaryServerIP = StunSocketReceiver.resolveServerAddress(stunServer, sourceIaddress);
+		int defaultMin = (primaryServerIP instanceof Inet6Address) ? DEFAULT_MIN_IPV6_MTU : DEFAULT_MIN_MTU;
+		return test(defaultMin, DEFAULT_MAX_MTU);
 	}
 
 	/**
@@ -94,7 +98,7 @@ public class MtuDiscoveryTest {
 		if (minMtu <= 0 || maxMtu < minMtu) {
 			throw new IllegalArgumentException("Invalid MTU bounds: minMtu=" + minMtu + ", maxMtu=" + maxMtu);
 		}
-		InetAddress primaryServerIP = InetAddress.getByName(stunServer);
+		InetAddress primaryServerIP = StunSocketReceiver.resolveServerAddress(stunServer, sourceIaddress);
 		int headerOverhead = (primaryServerIP instanceof Inet6Address) ? IPV6_UDP_OVERHEAD : IPV4_UDP_OVERHEAD;
 		int recvBufSize = Math.max(10240, maxMtu + 1024);
 

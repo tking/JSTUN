@@ -14,7 +14,10 @@ package de.javawi.jstun.test;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.Inet6Address;
+import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 
 import org.slf4j.Logger;
@@ -38,6 +41,26 @@ final class StunSocketReceiver {
 	static final int DEFAULT_BUFFER_SIZE = 512;
 
 	private StunSocketReceiver() {
+	}
+
+	/**
+	 * Resolves {@code host} to an {@link InetAddress} matching the IP address family
+	 * (IPv4 or IPv6) of {@code sourceAddress}. When {@code sourceAddress} is {@code null}
+	 * or a wildcard address ({@code 0.0.0.0} / {@code ::}), returns the first resolved address.
+	 */
+	static InetAddress resolveServerAddress(String host, InetAddress sourceAddress) throws UnknownHostException {
+		InetAddress[] candidates = InetAddress.getAllByName(host);
+		if (sourceAddress == null || sourceAddress.isAnyLocalAddress()) {
+			return candidates[0];
+		}
+		boolean wantV6 = sourceAddress instanceof Inet6Address;
+		for (InetAddress candidate : candidates) {
+			if (wantV6 == (candidate instanceof Inet6Address)) {
+				return candidate;
+			}
+		}
+		throw new UnknownHostException("No " + (wantV6 ? "IPv6" : "IPv4")
+				+ " address found for STUN server host: " + host);
 	}
 
 	static MessageHeader receiveMatching(DatagramSocket socket, MessageHeader expectedRequest, int timeoutMs)

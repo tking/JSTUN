@@ -45,29 +45,21 @@ public class Address {
 		if (address == null || address.isEmpty()) {
 			throw new UtilityException("Address is in incorrect format.");
 		}
-		// ipv4
-		if (address.contains(".")) {
-			StringTokenizer st = new StringTokenizer(address, ".");
-			if (st.countTokens() != 4) {
-				throw new UtilityException("4 octets in address string are required.");
+		if (address.contains(":")) {
+			// ipv6 (strip optional RFC 4007 zone/scope ID such as %en0)
+			int pct = address.indexOf('%');
+			if (pct != -1) {
+				address = address.substring(0, pct);
 			}
-			int i = 0;
-			this.octets = new int[4];
-			while (st.hasMoreTokens()) {
-				int temp;
-				try {
-					temp = Integer.parseInt(st.nextToken());
-				} catch (NumberFormatException nfe) {
-					throw new UtilityException("Address is in incorrect format.");
-				}
-				if ((temp < 0) || (temp > 255)) {
-					throw new UtilityException("Address is in incorrect format.");
-				}
-				this.octets[i] = temp;
-				i++;
+			// Convert embedded IPv4 suffix (e.g., ::ffff:192.0.2.1) into two 16-bit hex groups
+			if (address.contains(".")) {
+				int lastColon = address.lastIndexOf(':');
+				int[] v4Octets = parseIPv4Octets(address.substring(lastColon + 1));
+				int high = (v4Octets[0] << 8) | v4Octets[1];
+				int low = (v4Octets[2] << 8) | v4Octets[3];
+				address = address.substring(0, lastColon + 1)
+						+ Integer.toHexString(high) + ":" + Integer.toHexString(low);
 			}
-		} else {
-			// ipv6
 			String expanded = expandIPv6(address);
 			StringTokenizer st = new StringTokenizer(expanded, ":");
 			if (st.countTokens() != 8) {
@@ -89,7 +81,34 @@ public class Address {
 				this.octets[i + 1] = temp % 256;
 				i += 2;
 			}
+		} else if (address.contains(".")) {
+			// ipv4
+			this.octets = parseIPv4Octets(address);
+		} else {
+			throw new UtilityException("Address is in incorrect format.");
 		}
+	}
+
+	private static int[] parseIPv4Octets(String address) throws UtilityException {
+		StringTokenizer st = new StringTokenizer(address, ".");
+		if (st.countTokens() != 4) {
+			throw new UtilityException("4 octets in address string are required.");
+		}
+		int[] result = new int[4];
+		int i = 0;
+		while (st.hasMoreTokens()) {
+			int temp;
+			try {
+				temp = Integer.parseInt(st.nextToken());
+			} catch (NumberFormatException nfe) {
+				throw new UtilityException("Address is in incorrect format.");
+			}
+			if ((temp < 0) || (temp > 255)) {
+				throw new UtilityException("Address is in incorrect format.");
+			}
+			result[i++] = temp;
+		}
+		return result;
 	}
 
 	private static String expandIPv6(String address) throws UtilityException {
@@ -177,11 +196,7 @@ public class Address {
 	}
 	
 	public int hashCode() {
-		int result = 0;
-		for (int i = 0; i < octets.length; i++) {
-			result += octets[i] << (i * 8);
-		}
-		return result;
+		return Arrays.hashCode(octets);
 	}
 
 }
