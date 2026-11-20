@@ -62,6 +62,7 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 		if (type == MessageAttributeType.MessageIntegritySha256) return MESSAGEINTEGRITYSHA256;
 		if (type == MessageAttributeType.XorMappedAddress) return XORMAPPEDADDRESS;
 		if (type == MessageAttributeType.ReservationToken) return RESERVATIONTOKEN;
+		if (type == MessageAttributeType.Priority) return PRIORITY;
 		if (type == MessageAttributeType.Padding) return PADDING;
 		if (type == MessageAttributeType.ResponsePort) return RESPONSEPORT;
 		if (type == MessageAttributeType.Software) return SOFTWARE;
@@ -99,6 +100,7 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 		if (type == MESSAGEINTEGRITYSHA256) return MessageAttributeType.MessageIntegritySha256;
 		if (type == XORMAPPEDADDRESS || type == XORMAPPEDADDRESS_OPTIONAL) return MessageAttributeType.XorMappedAddress;
 		if (type == RESERVATIONTOKEN) return MessageAttributeType.ReservationToken;
+		if (type == PRIORITY) return MessageAttributeType.Priority;
 		if (type == PADDING) return MessageAttributeType.Padding;
 		if (type == RESPONSEPORT) return MessageAttributeType.ResponsePort;
 		if (type == SOFTWARE) return MessageAttributeType.Software;
@@ -162,6 +164,7 @@ public abstract class MessageAttribute implements MessageAttributeInterface {
 				ma = XorMappedAddress.parse(valueArray, transactionId);
 				break;
 			case RESERVATIONTOKEN: ma = ReservationToken.parse(valueArray); break;
+			case PRIORITY: ma = Priority.parse(valueArray); break;
 			case PADDING: ma = Padding.parse(valueArray); break;
 			case RESPONSEPORT: ma = ResponsePort.parse(valueArray); break;
 			case SOFTWARE: ma = Software.parse(valueArray); break;

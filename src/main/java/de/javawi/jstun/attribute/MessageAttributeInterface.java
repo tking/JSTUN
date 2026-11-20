@@ -17,7 +17,7 @@ public interface MessageAttributeInterface {
 		Username, Password, MessageIntegrity, ErrorCode, UnknownAttribute, ReflectedFrom,
 		ChannelNumber, Lifetime, XorPeerAddress, Data, Realm, Nonce, XorRelayedAddress,
 		EvenPort, RequestedTransport, DontFragment, MessageIntegritySha256,
-		XorMappedAddress, ReservationToken, Padding, ResponsePort, Software,
+		XorMappedAddress, ReservationToken, Priority, Padding, ResponsePort, Software,
 		AlternateServer, Fingerprint, Userhash, ResponseOrigin, OtherAddress, Dummy
 	};
 	final static int MAPPEDADDRESS = 0x0001;
@@ -43,15 +43,16 @@ public interface MessageAttributeInterface {
 	final static int REQUESTEDTRANSPORT = 0x0019;
 	final static int DONTFRAGMENT = 0x001a;
 	final static int MESSAGEINTEGRITYSHA256 = 0x001c;
+	final static int USERHASH = 0x001e;
 	final static int XORMAPPEDADDRESS = 0x0020;
 	final static int RESERVATIONTOKEN = 0x0022;
+	final static int PRIORITY = 0x0024;
 	final static int PADDING = 0x0026;
 	final static int RESPONSEPORT = 0x0027;
 	final static int XORMAPPEDADDRESS_OPTIONAL = 0x8020;
 	final static int SOFTWARE = 0x8022;
 	final static int ALTERNATESERVER = 0x8023;
 	final static int FINGERPRINT = 0x8028;
-	final static int USERHASH = 0x8029;
 	final static int RESPONSEORIGIN = 0x802b;
 	final static int OTHERADDRESS = 0x802c;
 	final static int DUMMY = 0x0000;

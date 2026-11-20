@@ -19,11 +19,12 @@ import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.javawi.jstun.util.SaslPrep;
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
 /**
- * USERHASH attribute (0x8029) as defined in RFC 8489 §14.4.
+ * USERHASH attribute ({@code 0x001E}) as defined in RFC 8489 §14.4.
  * <p>
  * Contains the 32-byte SHA-256 hash of {@code username ":" realm} for
  * privacy-preserving long-term credential authentication.
@@ -63,8 +64,10 @@ public class Userhash extends MessageAttribute {
 
 	public static byte[] computeUserhash(String username, String realm) throws UtilityException {
 		try {
+			String preparedUsername = username != null ? SaslPrep.prepare(username) : "";
+			String preparedRealm = realm != null ? SaslPrep.prepare(realm) : "";
 			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-			String input = (username != null ? username : "") + ":" + (realm != null ? realm : "");
+			String input = preparedUsername + ":" + preparedRealm;
 			return sha256.digest(input.getBytes(StandardCharsets.UTF_8));
 		} catch (NoSuchAlgorithmException e) {
 			throw new UtilityException("SHA-256 algorithm not available");

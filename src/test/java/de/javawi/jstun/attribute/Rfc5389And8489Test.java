@@ -42,7 +42,7 @@ import de.javawi.jstun.util.Address;
  *   <li>Binding Indications ({@code 0x0011}) with no server response</li>
  *   <li>{@code 300 Try Alternate} + {@code ALTERNATE-SERVER} ({@code 0x8023}) redirect handling</li>
  *   <li>{@code MESSAGE-INTEGRITY-SHA256} ({@code 0x001C}, RFC 8489 §14.6)</li>
- *   <li>{@code USERHASH} ({@code 0x8029}, RFC 8489 §14.4)</li>
+ *   <li>{@code USERHASH} ({@code 0x001E}, RFC 8489 §14.4)</li>
  * </ul>
  */
 public class Rfc5389And8489Test {
@@ -121,6 +121,10 @@ public class Rfc5389And8489Test {
 		mh.generateTransactionID();
 
 		Userhash uh = new Userhash(username, realm);
+		assertEquals(0x001E, MessageAttribute.typeToInteger(MessageAttributeType.Userhash));
+		byte[] uhWire = uh.getBytes();
+		assertEquals(0x00, uhWire[0] & 0xFF);
+		assertEquals(0x1E, uhWire[1] & 0xFF);
 		assertTrue(uh.matches(username, realm));
 		assertFalse(uh.matches("bob", realm));
 		assertEquals(32, uh.getHash().length);
