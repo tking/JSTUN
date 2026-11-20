@@ -1,4 +1,4 @@
-[![Java CI with Maven](https://github.com/tking/JSTUN/actions/workflows/maven.yml/badge.svg)](https://github.com/tking/JSTUN/actions/workflows/maven.yml) [![Coverage](https://raw.githubusercontent.com/tking/JSTUN/badges/jacoco.svg)](https://github.com/tking/JSTUN/actions/workflows/maven.yml) [![GitHub Release](https://img.shields.io/github/v/release/tking/JSTUN)](https://github.com/tking/JSTUN/releases/latest) [![Maven Central](https://img.shields.io/maven-central/v/de.javawi.jstun/jstun.svg)](https://central.sonatype.com/artifact/de.javawi.jstun/jstun) [![Java 17+](https://img.shields.io/badge/Java-17%2B-ED8B00?logo=openjdk&logoColor=white)](https://adoptium.net/) [![RFCs](https://img.shields.io/badge/RFC-3489%20%7C%205389%20%7C%205769%20%7C%205780%20%7C%208489-brightgreen)](#supported-rfcs--features)
+[![Java CI with Maven](https://github.com/tking/JSTUN/actions/workflows/maven.yml/badge.svg)](https://github.com/tking/JSTUN/actions/workflows/maven.yml) [![Coverage](https://raw.githubusercontent.com/tking/JSTUN/badges/jacoco.svg)](https://github.com/tking/JSTUN/actions/workflows/maven.yml) [![GitHub Release](https://img.shields.io/github/v/release/tking/JSTUN)](https://github.com/tking/JSTUN/releases/latest) [![Maven Central](https://img.shields.io/maven-central/v/de.javawi.jstun/jstun.svg)](https://central.sonatype.com/artifact/de.javawi.jstun/jstun) [![Java 17+](https://img.shields.io/badge/Java-17%2B-ED8B00?logo=openjdk&logoColor=white)](https://adoptium.net/) [![RFCs](https://img.shields.io/badge/RFC-3489%20%7C%205389%20%7C%205766%20%7C%205769%20%7C%205780%20%7C%208489-brightgreen)](#supported-rfcs--features)
 
 "JSTUN" - Java Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)
 =========================================================================================================
@@ -10,7 +10,7 @@ What is "JSTUN"?
 ----------------
 "JSTUN" is a Java-based STUN (*Session Traversal Utilities for NAT* / *Simple Traversal of User Datagram Protocol (UDP) Through Network Address Translation (NAT)*) implementation. STUN provides a means for applications to discover the presence and behavior of firewalls or NATs between them and the public Internet. Additionally, in the presence of a NAT, STUN can be used by applications to learn the public Internet Protocol (IPv4 / IPv6) address and port assigned to the NAT binding.
 
-"JSTUN" supports both classic STUN (**RFC 3489**) and modern STUN extensions (**RFC 5389 / RFC 8489**, **RFC 5769**, and **RFC 5780**), and includes STUN discovery clients as well as a dual-homed STUN server. "JSTUN" is dual-licensed under the GNU General Public License version 2.0 (GPLv2) and the Apache License version 2.0.
+"JSTUN" supports classic STUN (**RFC 3489**), modern STUN (**RFC 5389 / RFC 8489**, **RFC 5769**, and **RFC 5780**), and TURN relay extensions (**RFC 5766**), including STUN/TURN clients as well as dual-homed STUN and NIO TURN relay servers. "JSTUN" is dual-licensed under the GNU General Public License version 2.0 (GPLv2) and the Apache License version 2.0.
 
 
 Supported RFCs & Features
@@ -30,6 +30,12 @@ Supported RFCs & Features
   * **NAT Hairpinning Discovery:** `HairpinningDiscoveryTest` probes a socket's external mapped endpoint from a second local socket to determine hairpinning support.
   * **`RESPONSE-PORT` Binding Lifetime Probing:** `BindingLifetimeTest.setUseResponsePort(true)` probes binding lifetimes using `RESPONSE-PORT` (`0x0027` via `ResponsePort`) alongside classic `RESPONSE-ADDRESS`.
   * **RFC 5780 Attributes:** `OTHER-ADDRESS` (`0x802C` via `OtherAddress`, replacing `CHANGED-ADDRESS`), `RESPONSE-ORIGIN` (`0x802B` via `ResponseOrigin`, replacing `SOURCE-ADDRESS`), `RESPONSE-PORT` (`0x0027` via `ResponsePort`), and `PADDING` (`0x0026` via `Padding`).
+
+* **RFC 5766 – Traversal Using Relays around NAT (TURN)**
+  * **TURN Wire Protocol & Framing:** Supports `Allocate` (`0x0003`), `Refresh` (`0x0004`), `Send` (`0x0016`) / `Data` (`0x0017`) indications, `CreatePermission` (`0x0008`), `ChannelBind` (`0x0009`), TURN error codes (`403`, `437`, `440`, `441`, `442`, `486`, `508`), ordered multi-attribute serialization in `MessageHeader`, and binary `ChannelData` (`0x4000..0x7FFF`) framing via `ChannelData`.
+  * **TURN Attributes:** `CHANNEL-NUMBER` (`0x000C` via `ChannelNumber`), `LIFETIME` (`0x000D` via `Lifetime`), `XOR-PEER-ADDRESS` (`0x0012` via `XorPeerAddress`), `DATA` (`0x0013` via `Data`), `XOR-RELAYED-ADDRESS` (`0x0016` via `XorRelayedAddress`), `EVEN-PORT` (`0x0018` via `EvenPort`), `REQUESTED-TRANSPORT` (`0x0019` via `RequestedTransport`), `DONT-FRAGMENT` (`0x001A` via `DontFragment`), and `RESERVATION-TOKEN` (`0x0022` via `ReservationToken`).
+  * **UDP TURN Client (`TurnClient`) & ICE Integration:** Automatic `401` challenge and `438` stale-nonce retry, `allocate()`, `EVEN-PORT` / `RESERVATION-TOKEN`, `refresh()`, multi-peer `createPermission()`, `channelBind()`, `Send`/`Data` indications, `ChannelData` relaying, and `ICENegotiator.setTurnServer(...)` for gathering `Relayed` candidates.
+  * **NIO UDP TURN Server (`TurnServer`):** Single-selector NIO relay server with mandatory HMAC-SHA1 long-term authentication, IP-bound HMAC-SHA256 nonces, 5-tuple allocations with expiry reaper, peer permissions, `ChannelData` relaying, SSRF private-peer blocking (`403` by default), per-user/global quotas (`486` / `508`), and zero-dependency `TurnServerStats`.
 
 * **RFC 5769 – Test Vectors for Session Traversal Utilities for NAT (STUN)**
   * **Wire-Level Golden Vectors:** Byte-for-byte verification of Binding Request/Response serialization, `XOR-MAPPED-ADDRESS` (IPv4/IPv6), `SOFTWARE`, `MESSAGE-INTEGRITY`, `FINGERPRINT`, and UTF-8 long-term credentials against official Sections 2.1–2.4 test vectors in `Rfc5769TestVectorsTest`.
@@ -110,6 +116,18 @@ Server logs rotate automatically (`logging_server.%g.txt`, 10 MB × 5 files) at 
 java -Djstun.log.level=ALL -Djstun.stats.interval=60 -jar jstun-1.0.4-server.jar PORT1 IP1 PORT2 IP2
 ```
 
+### TURN Server & Client (RFC 5766)
+Run the NIO UDP TURN relay server with one or more `USER:PASS` credentials:
+```bash
+java -cp jstun-1.0.4-server.jar \
+  de.javawi.jstun.turn.TurnServer 3478 0.0.0.0 example.org alice:secret
+```
+Test relay allocation from the CLI with `TurnClientDemo`:
+```bash
+java -cp jstun-1.0.4-server.jar \
+  de.javawi.jstun.test.demo.TurnClientDemo turn.example.org 3478 alice secret
+```
+
 
 Testing
 -------
@@ -123,6 +141,7 @@ The test suite (`de.javawi.jstun.AllTests`, with JaCoCo coverage reporting in `t
 * **`Rfc5780AttributesAndDiscoveryTest`:** Tests **RFC 5780** attribute serialization/parsing (`OtherAddress`, `ResponseOrigin`, `ResponsePort`, `Padding`), the full `NatBehaviorDiscoveryTest` algorithm across Section 4.3 Mapping Behavior (`DIRECT`, `ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`) and Section 4.4 Filtering Behavior (`ENDPOINT_INDEPENDENT`, `ADDRESS_DEPENDENT`, `ADDRESS_AND_PORT_DEPENDENT`), `MtuDiscoveryTest` Section 4.6 MTU probing (`1420`-byte constrained paths, `9000`-byte jumbo frames, IPv6 `::1`, and `420` legacy fallback), and `HairpinningDiscoveryTest` (`TRUE`, `FALSE`, `null`).
 * **`BindingLifetimeAndStunServerTest`:** Tests the **RFC 3489 Section 10.2** & **RFC 5780 `RESPONSE-PORT`** binary-search UDP binding lifetime discovery algorithms (`BindingLifetimeTest`) and the dual-homed `StunServer` across all `CHANGE-REQUEST`, `RESPONSE-PORT`, `RESPONSE-ADDRESS`, `SOFTWARE`, `FINGERPRINT` validation/discarding, jumbo `PADDING` echo, and `ERROR-CODE` (`420`) + `UNKNOWN-ATTRIBUTES` error modes.
 * **`Rfc5389And8489Test`:** Tests **RFC 5389 / 8489** `BindingIndication` (`0x0011`) silent server handling, `300 Try Alternate` + `ALTERNATE-SERVER` redirect handling with loop protection, `MessageIntegritySha256` (`0x001C`), and `Userhash` (`0x8029`).
+* **`Rfc5766WireProtocolTest` & `Rfc5766TurnClientServerTest`:** Tests all **RFC 5766 (TURN)** message types, attributes, repeated `XOR-PEER-ADDRESS` ordering, `MESSAGE-INTEGRITY` + `FINGERPRINT` verification, `ChannelData` framing, and end-to-end `TurnClient` ↔ `TurnServer` ↔ UDP peer relaying (`401`/`438` auth, `403` SSRF filtering, `Send`/`Data` indications, `ChannelBind`/`ChannelData`, `EVEN-PORT` + `RESERVATION-TOKEN`, `486`/`508` quotas, and `ICENegotiator` relayed candidates).
 * **`Rfc5769TestVectorsTest`:** Validates byte-for-byte wire compatibility against the official **RFC 5769** STUN test vectors:
   * Section 2.1 Sample Binding Request (`evtj:h6vY`, `STUN test client`, short-term `MESSAGE-INTEGRITY`, `FINGERPRINT`)
   * Section 2.2 IPv4 Binding Response (`192.0.2.1:32853`, `XOR-MAPPED-ADDRESS`, `SOFTWARE`, `MESSAGE-INTEGRITY`, `FINGERPRINT`)

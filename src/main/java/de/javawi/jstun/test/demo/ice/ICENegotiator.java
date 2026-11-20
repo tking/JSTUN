@@ -13,6 +13,7 @@ package de.javawi.jstun.test.demo.ice;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -31,6 +32,8 @@ import de.javawi.jstun.header.MessageHeaderParsingException;
 import de.javawi.jstun.test.DiscoveryInfo;
 import de.javawi.jstun.test.DiscoveryTest;
 import de.javawi.jstun.test.demo.ice.Candidate.CandidateType;
+import de.javawi.jstun.turn.TurnClient;
+import de.javawi.jstun.turn.TurnException;
 import de.javawi.jstun.util.Address;
 import de.javawi.jstun.util.UtilityException;
 
@@ -46,6 +49,10 @@ public class ICENegotiator {
 	private short componentId;
 	private String stunServer = "jstun.t-king.de";
 	private int stunPort = 3478;
+	private String turnServer;
+	private int turnPort = 3478;
+	private String turnUsername;
+	private String turnPassword;
 	
 	// candidates
 	HashSet<Candidate> candidates;
@@ -60,6 +67,41 @@ public class ICENegotiator {
 		this.stunPort = stunPort;
 		this.componentId = componentId;
 		candidates = new HashSet<Candidate>();
+	}
+
+	/**
+	 * Configures an optional RFC 5766 TURN server so {@link #gatherCandidateAddresses()}
+	 * also gathers {@link CandidateType#Relayed} candidates.
+	 */
+	public void setTurnServer(String turnServer, int turnPort, String turnUsername, String turnPassword) {
+		this.turnServer = turnServer;
+		this.turnPort = turnPort;
+		this.turnUsername = turnUsername;
+		this.turnPassword = turnPassword;
+	}
+
+	/**
+	 * Allocates a single RFC 5766 relayed ICE candidate from the configured TURN server
+	 * using {@code base} as the local base candidate.
+	 */
+	public Candidate gatherRelayedCandidate(InetAddress localAddress, Candidate base)
+			throws TurnException, IOException, UtilityException, UnknownHostException {
+		if (turnServer == null || turnUsername == null || turnPassword == null) {
+			throw new IllegalStateException("TURN server credentials are not configured");
+		}
+		try (TurnClient turnClient = new TurnClient(localAddress, turnServer, turnPort, turnUsername, turnPassword)) {
+			InetSocketAddress relayed = turnClient.allocate();
+			Candidate relayedCand = new Candidate(
+					new Address(relayed.getAddress().getAddress()),
+					relayed.getPort(),
+					CandidateType.Relayed,
+					componentId,
+					base);
+			relayedCand.setComponentId(componentId);
+			candidates.add(relayedCand);
+			LOGGER.debug("Added relayed ICE candidate: {}:{}.", relayedCand.getAddress(), relayedCand.getPort());
+			return relayedCand;
+		}
 	}
 
 	/*
@@ -96,6 +138,13 @@ public class ICENegotiator {
 								cand.setComponentId(componentId);
 								candidates.add(cand);
 								LOGGER.debug("Added server-reflexive ICE candidate: {}:{}.", cand.getAddress(), cand.getPort());
+							}
+							if (turnServer != null && turnUsername != null && turnPassword != null) {
+								try {
+									gatherRelayedCandidate(iaddress, local);
+								} catch (TurnException te) {
+									LOGGER.debug("TurnException while gathering relayed ICE candidate: {}", te.getMessage());
+								}
 							}
 						} catch (MessageHeaderParsingException mhpe) {
 							LOGGER.debug("MessageHeaderParsingException while gathering candidate addresses: {}", mhpe.getMessage());
