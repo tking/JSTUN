@@ -12,15 +12,20 @@
 package de.javawi.jstun.header;
 
 import java.security.SecureRandom;
-import java.util.Iterator;
-import java.util.TreeMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.javawi.jstun.attribute.Fingerprint;
 import de.javawi.jstun.attribute.MessageAttribute;
+import de.javawi.jstun.attribute.MessageAttributeException;
+import de.javawi.jstun.attribute.MessageAttributeInterface;
 import de.javawi.jstun.attribute.MessageAttributeParsingException;
+import de.javawi.jstun.attribute.MessageIntegrity;
 import de.javawi.jstun.attribute.XorMappedAddress;
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
@@ -44,7 +49,7 @@ public class MessageHeader implements MessageHeaderInterface {
 	MessageHeaderType type;
 	byte[] id = new byte[16];
 	
-	TreeMap<MessageAttribute.MessageAttributeType, MessageAttribute> ma = new TreeMap<MessageAttribute.MessageAttributeType, MessageAttribute>();
+	List<MessageAttribute> ma = new ArrayList<MessageAttribute>();
 	
 	public MessageHeader() {
 		super();
@@ -71,6 +76,20 @@ public class MessageHeader implements MessageHeaderInterface {
 		if (type == MessageHeaderType.SharedSecretRequest) return SHAREDSECRETREQUEST;
 		if (type == MessageHeaderType.SharedSecretResponse) return SHAREDSECRETRESPONSE;
 		if (type == MessageHeaderType.SharedSecretErrorResponse) return SHAREDSECRETERRORRESPONSE;
+		if (type == MessageHeaderType.AllocateRequest) return ALLOCATEREQUEST;
+		if (type == MessageHeaderType.AllocateResponse) return ALLOCATERESPONSE;
+		if (type == MessageHeaderType.AllocateErrorResponse) return ALLOCATEERRORRESPONSE;
+		if (type == MessageHeaderType.RefreshRequest) return REFRESHREQUEST;
+		if (type == MessageHeaderType.RefreshResponse) return REFRESHRESPONSE;
+		if (type == MessageHeaderType.RefreshErrorResponse) return REFRESHERRORRESPONSE;
+		if (type == MessageHeaderType.SendIndication) return SENDINDICATION;
+		if (type == MessageHeaderType.DataIndication) return DATAINDICATION;
+		if (type == MessageHeaderType.CreatePermissionRequest) return CREATEPERMISSIONREQUEST;
+		if (type == MessageHeaderType.CreatePermissionResponse) return CREATEPERMISSIONRESPONSE;
+		if (type == MessageHeaderType.CreatePermissionErrorResponse) return CREATEPERMISSIONERRORRESPONSE;
+		if (type == MessageHeaderType.ChannelBindRequest) return CHANNELBINDREQUEST;
+		if (type == MessageHeaderType.ChannelBindResponse) return CHANNELBINDRESPONSE;
+		if (type == MessageHeaderType.ChannelBindErrorResponse) return CHANNELBINDERRORRESPONSE;
 		return -1;
 	}
 	
@@ -119,18 +138,47 @@ public class MessageHeader implements MessageHeaderInterface {
 		if (attri instanceof XorMappedAddress) {
 			((XorMappedAddress) attri).setTransactionID(this.id);
 		}
-		ma.put(attri.getType(), attri);
+		ma.add(attri);
 	}
 	
 	public MessageAttribute getMessageAttribute(MessageAttribute.MessageAttributeType type) {
-		return ma.get(type);
+		for (MessageAttribute attri : ma) {
+			if (attri.getType() == type) {
+				return attri;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Returns all attributes of the given type in insertion/wire order
+	 * (e.g. multiple {@code XOR-PEER-ADDRESS} attributes in RFC 5766 {@code CreatePermission}).
+	 */
+	public List<MessageAttribute> getMessageAttributes(MessageAttribute.MessageAttributeType type) {
+		List<MessageAttribute> matches = new ArrayList<MessageAttribute>();
+		for (MessageAttribute attri : ma) {
+			if (attri.getType() == type) {
+				matches.add(attri);
+			}
+		}
+		return Collections.unmodifiableList(matches);
+	}
+
+	public List<MessageAttribute> removeMessageAttributes(MessageAttribute.MessageAttributeType type) {
+		List<MessageAttribute> removed = new ArrayList<MessageAttribute>();
+		ma.removeIf(attri -> {
+			if (attri.getType() == type) {
+				removed.add(attri);
+				return true;
+			}
+			return false;
+		});
+		return removed;
 	}
 	
 	public byte[] getBytes() throws UtilityException {
 		int length = 20;
-		Iterator<MessageAttribute.MessageAttributeType> it = ma.keySet().iterator();
-		while (it.hasNext()) {
-			MessageAttribute attri = ma.get(it.next());
+		for (MessageAttribute attri : ma) {
 			if (attri instanceof XorMappedAddress) {
 				((XorMappedAddress) attri).setTransactionID(this.id);
 			}
@@ -142,14 +190,12 @@ public class MessageHeader implements MessageHeaderInterface {
 		System.arraycopy(Utility.integerToTwoBytes(length-20), 0, result, 2, 2);
 		System.arraycopy(id, 0, result, 4, 16);
 		
-		// arraycopy of attributes
+		// arraycopy of attributes in insertion order
 		int offset = 20;
-		it = ma.keySet().iterator();
-		while (it.hasNext()) {
-			MessageAttribute attri = ma.get(it.next());
-			int attrLen = attri.getLength();
-			System.arraycopy(attri.getBytes(), 0, result, offset, attrLen);
-			offset += attrLen;
+		for (MessageAttribute attri : ma) {
+			byte[] attrBytes = attri.getBytes();
+			System.arraycopy(attrBytes, 0, result, offset, attrBytes.length);
+			offset += attrBytes.length;
 		}
 		return result;
 	}
@@ -159,29 +205,141 @@ public class MessageHeader implements MessageHeaderInterface {
 	}
 
 	/**
-	 * Serializes this STUN message and appends an RFC 5389 §15.5 FINGERPRINT
+	 * Serializes this STUN/TURN message and appends an RFC 5389 §15.5 FINGERPRINT
 	 * attribute as the final attribute in the message.
 	 */
 	public byte[] getBytesWithFingerprint() throws UtilityException {
-		MessageAttribute existingFp = ma.remove(MessageAttribute.MessageAttributeType.Fingerprint);
+		List<MessageAttribute> existingFp = removeMessageAttributes(MessageAttribute.MessageAttributeType.Fingerprint);
 		try {
 			byte[] prefix = getBytes();
-			long crc = Fingerprint.calculateFingerprint(prefix);
-			byte[] fpBytes = new Fingerprint(crc).getBytes();
-
-			byte[] result = new byte[prefix.length + fpBytes.length];
-			System.arraycopy(prefix, 0, result, 0, prefix.length);
-			System.arraycopy(fpBytes, 0, result, prefix.length, fpBytes.length);
-
-			byte[] totalAttrLen = Utility.integerToTwoBytes(result.length - 20);
-			result[2] = totalAttrLen[0];
-			result[3] = totalAttrLen[1];
-			return result;
+			return appendFingerprint(prefix);
 		} finally {
-			if (existingFp != null) {
-				ma.put(MessageAttribute.MessageAttributeType.Fingerprint, existingFp);
-			}
+			ma.addAll(existingFp);
 		}
+	}
+
+	/**
+	 * Serializes this STUN/TURN message with a trailing RFC 5389 §15.4 long-term
+	 * {@code MESSAGE-INTEGRITY} attribute placed after all other attributes.
+	 */
+	public byte[] getBytesWithLongTermMessageIntegrity(String username, String realm, String password)
+			throws UtilityException {
+		return serializeWithIntegrity(username, realm, password, false);
+	}
+
+	/**
+	 * Serializes this STUN/TURN message with a trailing long-term {@code MESSAGE-INTEGRITY}
+	 * followed by {@code FINGERPRINT} as the final attribute.
+	 */
+	public byte[] getBytesWithLongTermMessageIntegrityAndFingerprint(String username, String realm, String password)
+			throws UtilityException {
+		return serializeWithIntegrity(username, realm, password, true);
+	}
+
+	private byte[] serializeWithIntegrity(String username, String realm, String password, boolean withFingerprint)
+			throws UtilityException {
+		List<MessageAttribute> existingMi = removeMessageAttributes(MessageAttribute.MessageAttributeType.MessageIntegrity);
+		List<MessageAttribute> existingFp = removeMessageAttributes(MessageAttribute.MessageAttributeType.Fingerprint);
+		try {
+			byte[] prefix = getBytes();
+			byte[] hmac = MessageIntegrity.computeLongTermHMAC(prefix, username, realm, password);
+			byte[] miBytes;
+			try {
+				miBytes = new MessageIntegrity(hmac).getBytes();
+			} catch (MessageAttributeException e) {
+				throw new UtilityException("Failed to serialize MESSAGE-INTEGRITY: " + e.getMessage());
+			}
+			byte[] withMi = new byte[prefix.length + miBytes.length];
+			System.arraycopy(prefix, 0, withMi, 0, prefix.length);
+			System.arraycopy(miBytes, 0, withMi, prefix.length, miBytes.length);
+			byte[] miTotalLen = Utility.integerToTwoBytes(withMi.length - 20);
+			withMi[2] = miTotalLen[0];
+			withMi[3] = miTotalLen[1];
+			return withFingerprint ? appendFingerprint(withMi) : withMi;
+		} finally {
+			ma.addAll(existingMi);
+			ma.addAll(existingFp);
+		}
+	}
+
+	private static byte[] appendFingerprint(byte[] prefix) throws UtilityException {
+		long crc = Fingerprint.calculateFingerprint(prefix);
+		byte[] fpBytes = new Fingerprint(crc).getBytes();
+
+		byte[] result = new byte[prefix.length + fpBytes.length];
+		System.arraycopy(prefix, 0, result, 0, prefix.length);
+		System.arraycopy(fpBytes, 0, result, prefix.length, fpBytes.length);
+
+		byte[] totalAttrLen = Utility.integerToTwoBytes(result.length - 20);
+		result[2] = totalAttrLen[0];
+		result[3] = totalAttrLen[1];
+		return result;
+	}
+
+	/**
+	 * Verifies the RFC 5389 §15.4 long-term {@code MESSAGE-INTEGRITY} attribute on a raw
+	 * STUN/TURN wire packet (even when followed by {@code FINGERPRINT}).
+	 */
+	public static boolean verifyLongTermMessageIntegrity(byte[] fullPacket, String username, String realm, String password)
+			throws UtilityException, MessageAttributeParsingException {
+		int miOffset = findAttributeOffset(fullPacket, MessageAttributeInterface.MESSAGEINTEGRITY);
+		if (miOffset < 0) {
+			return false;
+		}
+		int attrLen = ((fullPacket[miOffset + 2] & 0xFF) << 8) | (fullPacket[miOffset + 3] & 0xFF);
+		if (attrLen != 20 || miOffset + 24 > fullPacket.length) {
+			return false;
+		}
+		byte[] prefix = Arrays.copyOf(fullPacket, miOffset);
+		byte[] hmacBytes = Arrays.copyOfRange(fullPacket, miOffset + 4, miOffset + 24);
+		MessageIntegrity mi = MessageIntegrity.parse(hmacBytes);
+		return mi.verifyLongTerm(prefix, username, realm, password);
+	}
+
+	/**
+	 * Verifies the RFC 5389 §15.4 short-term {@code MESSAGE-INTEGRITY} attribute on a raw
+	 * STUN/TURN wire packet (even when followed by {@code FINGERPRINT}).
+	 */
+	public static boolean verifyShortTermMessageIntegrity(byte[] fullPacket, String password)
+			throws UtilityException, MessageAttributeParsingException {
+		int miOffset = findAttributeOffset(fullPacket, MessageAttributeInterface.MESSAGEINTEGRITY);
+		if (miOffset < 0) {
+			return false;
+		}
+		int attrLen = ((fullPacket[miOffset + 2] & 0xFF) << 8) | (fullPacket[miOffset + 3] & 0xFF);
+		if (attrLen != 20 || miOffset + 24 > fullPacket.length) {
+			return false;
+		}
+		byte[] prefix = Arrays.copyOf(fullPacket, miOffset);
+		byte[] hmacBytes = Arrays.copyOfRange(fullPacket, miOffset + 4, miOffset + 24);
+		MessageIntegrity mi = MessageIntegrity.parse(hmacBytes);
+		return mi.verifyShortTerm(prefix, password);
+	}
+
+	private static int findAttributeOffset(byte[] packet, int targetAttrType) {
+		if (packet == null || packet.length < 20) {
+			return -1;
+		}
+		int payloadLen = ((packet[2] & 0xFF) << 8) | (packet[3] & 0xFF);
+		int end = Math.min(packet.length, 20 + payloadLen);
+		int offset = 20;
+		while (offset + 4 <= end) {
+			int attrType = ((packet[offset] & 0xFF) << 8) | (packet[offset + 1] & 0xFF);
+			int attrLen = ((packet[offset + 2] & 0xFF) << 8) | (packet[offset + 3] & 0xFF);
+			if (attrType == targetAttrType) {
+				return offset;
+			}
+			int padded = (attrLen + 3) & ~3;
+			int step = 4 + padded;
+			if (offset + step > end) {
+				step = 4 + attrLen;
+			}
+			if (step <= 0) {
+				return -1;
+			}
+			offset += step;
+		}
+		return -1;
 	}
 	
 	public void parseAttributes(byte[] data) throws MessageAttributeParsingException {
@@ -242,7 +400,21 @@ public class MessageHeader implements MessageHeaderInterface {
 				case BINDINGERRORRESPONSE: mh.setType(MessageHeaderType.BindingErrorResponse); LOGGER.debug("Binding Error Response received."); break;
 				case SHAREDSECRETREQUEST: mh.setType(MessageHeaderType.SharedSecretRequest); LOGGER.debug("Shared Secret Request received."); break;
 				case SHAREDSECRETRESPONSE: mh.setType(MessageHeaderType.SharedSecretResponse); LOGGER.debug("Shared Secret Response received."); break;
-				case SHAREDSECRETERRORRESPONSE: mh.setType(MessageHeaderType.SharedSecretErrorResponse); LOGGER.debug("Shared Secret Error Response received.");break;
+				case SHAREDSECRETERRORRESPONSE: mh.setType(MessageHeaderType.SharedSecretErrorResponse); LOGGER.debug("Shared Secret Error Response received."); break;
+				case ALLOCATEREQUEST: mh.setType(MessageHeaderType.AllocateRequest); LOGGER.debug("Allocate Request received."); break;
+				case ALLOCATERESPONSE: mh.setType(MessageHeaderType.AllocateResponse); LOGGER.debug("Allocate Response received."); break;
+				case ALLOCATEERRORRESPONSE: mh.setType(MessageHeaderType.AllocateErrorResponse); LOGGER.debug("Allocate Error Response received."); break;
+				case REFRESHREQUEST: mh.setType(MessageHeaderType.RefreshRequest); LOGGER.debug("Refresh Request received."); break;
+				case REFRESHRESPONSE: mh.setType(MessageHeaderType.RefreshResponse); LOGGER.debug("Refresh Response received."); break;
+				case REFRESHERRORRESPONSE: mh.setType(MessageHeaderType.RefreshErrorResponse); LOGGER.debug("Refresh Error Response received."); break;
+				case SENDINDICATION: mh.setType(MessageHeaderType.SendIndication); LOGGER.debug("Send Indication received."); break;
+				case DATAINDICATION: mh.setType(MessageHeaderType.DataIndication); LOGGER.debug("Data Indication received."); break;
+				case CREATEPERMISSIONREQUEST: mh.setType(MessageHeaderType.CreatePermissionRequest); LOGGER.debug("CreatePermission Request received."); break;
+				case CREATEPERMISSIONRESPONSE: mh.setType(MessageHeaderType.CreatePermissionResponse); LOGGER.debug("CreatePermission Response received."); break;
+				case CREATEPERMISSIONERRORRESPONSE: mh.setType(MessageHeaderType.CreatePermissionErrorResponse); LOGGER.debug("CreatePermission Error Response received."); break;
+				case CHANNELBINDREQUEST: mh.setType(MessageHeaderType.ChannelBindRequest); LOGGER.debug("ChannelBind Request received."); break;
+				case CHANNELBINDRESPONSE: mh.setType(MessageHeaderType.ChannelBindResponse); LOGGER.debug("ChannelBind Response received."); break;
+				case CHANNELBINDERRORRESPONSE: mh.setType(MessageHeaderType.ChannelBindErrorResponse); LOGGER.debug("ChannelBind Error Response received."); break;
 				default: throw new MessageHeaderParsingException("Message type " + type + "is not supported"); 
 			}
 			return mh;

@@ -27,6 +27,7 @@ import de.javawi.jstun.test.Rfc5780AttributesAndDiscoveryTest;
 import de.javawi.jstun.test.StunSocketReceiverTest;
 import de.javawi.jstun.test.demo.DemosAndServerTest;
 import de.javawi.jstun.test.demo.ice.ICENegotiatorTest;
+import de.javawi.jstun.turn.Rfc5766WireProtocolTest;
 import de.javawi.jstun.util.AddressTest;
 
 @Suite
@@ -43,6 +44,7 @@ import de.javawi.jstun.util.AddressTest;
 	Rfc5780AttributesAndDiscoveryTest.class,
 	BindingLifetimeAndStunServerTest.class,
 	StunSocketReceiverTest.class,
+	Rfc5766WireProtocolTest.class,
 	ICENegotiatorTest.class,
 	DemosAndServerTest.class
 })

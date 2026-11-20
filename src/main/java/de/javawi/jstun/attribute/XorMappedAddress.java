@@ -32,6 +32,15 @@ public class XorMappedAddress extends MappedResponseChangedSourceAddressReflecte
 		setTransactionID(transactionId);
 	}
 
+	protected XorMappedAddress(MessageAttribute.MessageAttributeType type) {
+		super(type);
+	}
+
+	protected XorMappedAddress(MessageAttribute.MessageAttributeType type, byte[] transactionId) {
+		super(type);
+		setTransactionID(transactionId);
+	}
+
 	public void setTransactionID(byte[] transactionId) {
 		if (transactionId == null) {
 			return;
@@ -101,6 +110,14 @@ public class XorMappedAddress extends MappedResponseChangedSourceAddressReflecte
 	}
 
 	public static MessageAttribute parse(byte[] data, byte[] transactionId) throws MessageAttributeParsingException {
+		XorMappedAddress xma = new XorMappedAddress(transactionId);
+		parseInto(xma, data, transactionId);
+		LOGGER.debug("Message Attribute: XOR-Mapped Address parsed: {}.", xma);
+		return xma;
+	}
+
+	protected static void parseInto(XorMappedAddress target, byte[] data, byte[] transactionId)
+			throws MessageAttributeParsingException {
 		try {
 			if (data.length < 8) {
 				throw new MessageAttributeParsingException("Data array too short");
@@ -126,11 +143,9 @@ public class XorMappedAddress extends MappedResponseChangedSourceAddressReflecte
 				octets[i] = Utility.oneByteToInteger(decodedByte);
 			}
 
-			XorMappedAddress xma = new XorMappedAddress(transactionId);
-			xma.setPort(decodedPort);
-			xma.setAddress(new Address(octets));
-			LOGGER.debug("Message Attribute: XOR-Mapped Address parsed: " + xma.toString() + ".");
-			return xma;
+			target.setTransactionID(transactionId);
+			target.setPort(decodedPort);
+			target.setAddress(new Address(octets));
 		} catch (UtilityException ue) {
 			throw new MessageAttributeParsingException("Parsing error");
 		} catch (MessageAttributeException mae) {
