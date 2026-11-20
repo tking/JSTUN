@@ -21,6 +21,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.javawi.jstun.util.SaslPrep;
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
@@ -64,14 +65,21 @@ public class MessageIntegrity extends MessageAttribute {
 		if (password == null || password.isEmpty()) {
 			throw new UtilityException("HMAC password must not be null or empty");
 		}
-		return computeHMAC(messagePrefixWithoutIntegrity, password.getBytes(StandardCharsets.UTF_8));
+		String preparedPassword = SaslPrep.prepare(password);
+		if (preparedPassword.isEmpty()) {
+			throw new UtilityException("HMAC password must not be empty after SASLprep");
+		}
+		return computeHMAC(messagePrefixWithoutIntegrity, preparedPassword.getBytes(StandardCharsets.UTF_8));
 	}
 
 	public static byte[] computeLongTermHMAC(byte[] messagePrefixWithoutIntegrity, String username, String realm,
 			String password) throws UtilityException {
 		try {
+			String preparedUsername = username != null ? SaslPrep.prepare(username) : "";
+			String preparedRealm = realm != null ? SaslPrep.prepare(realm) : "";
+			String preparedPassword = password != null ? SaslPrep.prepare(password) : "";
 			MessageDigest md5 = MessageDigest.getInstance("MD5");
-			String credentials = username + ":" + realm + ":" + password;
+			String credentials = preparedUsername + ":" + preparedRealm + ":" + preparedPassword;
 			byte[] key = md5.digest(credentials.getBytes(StandardCharsets.UTF_8));
 			return computeHMAC(messagePrefixWithoutIntegrity, key);
 		} catch (GeneralSecurityException gse) {

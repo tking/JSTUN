@@ -23,6 +23,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.javawi.jstun.util.SaslPrep;
 import de.javawi.jstun.util.Utility;
 import de.javawi.jstun.util.UtilityException;
 
@@ -74,7 +75,11 @@ public class MessageIntegritySha256 extends MessageAttribute {
 		if (password == null || password.isEmpty()) {
 			throw new UtilityException("HMAC password must not be null or empty");
 		}
-		byte[] key = password.getBytes(StandardCharsets.UTF_8);
+		String preparedPassword = SaslPrep.prepare(password);
+		if (preparedPassword.isEmpty()) {
+			throw new UtilityException("HMAC password must not be empty after SASLprep");
+		}
+		byte[] key = preparedPassword.getBytes(StandardCharsets.UTF_8);
 		return computeHMAC(messagePrefixWithoutIntegrity, key);
 	}
 
@@ -86,13 +91,15 @@ public class MessageIntegritySha256 extends MessageAttribute {
 
 	/**
 	 * Computes the RFC 8489 §9.2.2 SHA-256 long-term credential key:
-	 * {@code SHA-256(username ":" realm ":" password)}.
+	 * {@code SHA-256(username ":" realm ":" password)} after RFC 4013 SASLprep.
 	 */
 	public static byte[] computeLongTermKey(String username, String realm, String password) throws UtilityException {
 		try {
+			String preparedUsername = username != null ? SaslPrep.prepare(username) : "";
+			String preparedRealm = realm != null ? SaslPrep.prepare(realm) : "";
+			String preparedPassword = password != null ? SaslPrep.prepare(password) : "";
 			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-			String input = (username != null ? username : "") + ":" + (realm != null ? realm : "") + ":"
-					+ (password != null ? password : "");
+			String input = preparedUsername + ":" + preparedRealm + ":" + preparedPassword;
 			return sha256.digest(input.getBytes(StandardCharsets.UTF_8));
 		} catch (NoSuchAlgorithmException e) {
 			throw new UtilityException("SHA-256 algorithm not available");
