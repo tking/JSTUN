@@ -449,7 +449,7 @@ public class ConsentSession implements AutoCloseable {
 				LOGGER.debug("Ignoring STUN consent response with invalid FINGERPRINT from {}.", sender);
 				return false;
 			}
-		} catch (MessageHeaderException | MessageAttributeException e) {
+		} catch (MessageHeaderException | MessageAttributeException | UtilityException e) {
 			LOGGER.debug("Ignoring malformed STUN packet from {}: {}", sender, e.getMessage());
 			return false;
 		}
