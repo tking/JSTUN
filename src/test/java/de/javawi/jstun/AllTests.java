@@ -19,6 +19,7 @@ import de.javawi.jstun.attribute.MappedAddressTest;
 import de.javawi.jstun.attribute.Rfc5389And8489Test;
 import de.javawi.jstun.attribute.Rfc5769TestVectorsTest;
 import de.javawi.jstun.attribute.StunAttributesAndUtilityTest;
+import de.javawi.jstun.consent.Rfc7675ConsentFreshnessTest;
 import de.javawi.jstun.header.MessageHeaderTest;
 import de.javawi.jstun.test.BindingLifetimeAndStunServerTest;
 import de.javawi.jstun.test.DiscoveryInfoTest;
@@ -47,6 +48,7 @@ import de.javawi.jstun.util.AddressTest;
 	StunSocketReceiverTest.class,
 	Rfc5766WireProtocolTest.class,
 	Rfc5766TurnClientServerTest.class,
+	Rfc7675ConsentFreshnessTest.class,
 	ICENegotiatorTest.class,
 	DemosAndServerTest.class
 })

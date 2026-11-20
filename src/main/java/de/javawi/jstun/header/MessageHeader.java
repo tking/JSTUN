@@ -219,12 +219,28 @@ public class MessageHeader implements MessageHeaderInterface {
 	}
 
 	/**
+	 * Serializes this STUN/TURN message with a trailing RFC 5389 §15.4 short-term
+	 * {@code MESSAGE-INTEGRITY} attribute placed after all other attributes.
+	 */
+	public byte[] getBytesWithShortTermMessageIntegrity(String password) throws UtilityException {
+		return serializeWithIntegrity(null, null, password, true, false);
+	}
+
+	/**
+	 * Serializes this STUN/TURN message with a trailing short-term {@code MESSAGE-INTEGRITY}
+	 * followed by {@code FINGERPRINT} as the final attribute.
+	 */
+	public byte[] getBytesWithShortTermMessageIntegrityAndFingerprint(String password) throws UtilityException {
+		return serializeWithIntegrity(null, null, password, true, true);
+	}
+
+	/**
 	 * Serializes this STUN/TURN message with a trailing RFC 5389 §15.4 long-term
 	 * {@code MESSAGE-INTEGRITY} attribute placed after all other attributes.
 	 */
 	public byte[] getBytesWithLongTermMessageIntegrity(String username, String realm, String password)
 			throws UtilityException {
-		return serializeWithIntegrity(username, realm, password, false);
+		return serializeWithIntegrity(username, realm, password, false, false);
 	}
 
 	/**
@@ -233,16 +249,18 @@ public class MessageHeader implements MessageHeaderInterface {
 	 */
 	public byte[] getBytesWithLongTermMessageIntegrityAndFingerprint(String username, String realm, String password)
 			throws UtilityException {
-		return serializeWithIntegrity(username, realm, password, true);
+		return serializeWithIntegrity(username, realm, password, false, true);
 	}
 
-	private byte[] serializeWithIntegrity(String username, String realm, String password, boolean withFingerprint)
-			throws UtilityException {
+	private byte[] serializeWithIntegrity(String username, String realm, String password,
+			boolean shortTerm, boolean withFingerprint) throws UtilityException {
 		List<MessageAttribute> existingMi = removeMessageAttributes(MessageAttribute.MessageAttributeType.MessageIntegrity);
 		List<MessageAttribute> existingFp = removeMessageAttributes(MessageAttribute.MessageAttributeType.Fingerprint);
 		try {
 			byte[] prefix = getBytes();
-			byte[] hmac = MessageIntegrity.computeLongTermHMAC(prefix, username, realm, password);
+			byte[] hmac = shortTerm
+					? MessageIntegrity.computeShortTermHMAC(prefix, password)
+					: MessageIntegrity.computeLongTermHMAC(prefix, username, realm, password);
 			byte[] miBytes;
 			try {
 				miBytes = new MessageIntegrity(hmac).getBytes();
