@@ -43,13 +43,20 @@ public class ErrorCode extends MessageAttribute {
 		case 300: reason = "Try Alternate"; break;
 		case 400: reason = "Bad Request"; break;
 		case 401: reason = "Unauthorized"; break;
+		case 403: reason = "Forbidden"; break;
 		case 420: reason = "Unkown Attribute"; break;
 		case 430: reason = "Stale Credentials"; break;
 		case 431: reason = "Integrity Check Failure"; break;
 		case 432: reason = "Missing Username"; break;
 		case 433: reason = "Use TLS"; break;
+		case 437: reason = "Allocation Mismatch"; break;
 		case 438: reason = "Stale Nonce"; break;
+		case 440: reason = "Address Family not Supported"; break;
+		case 441: reason = "Wrong Credentials"; break;
+		case 442: reason = "Unsupported Transport Protocol"; break;
+		case 486: reason = "Allocation Quota Reached"; break;
 		case 500: reason = "Server Error"; break;
+		case 508: reason = "Insufficient Capacity"; break;
 		case 600: reason = "Global Failure"; break;
 		default:
 			if (responseCode < 100 || responseCode > 699) {

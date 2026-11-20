@@ -12,7 +12,14 @@
 package de.javawi.jstun.attribute;
 
 public interface MessageAttributeInterface {
-	public enum MessageAttributeType { MappedAddress, ResponseAddress, ChangeRequest, SourceAddress, ChangedAddress, Username, Password, MessageIntegrity, ErrorCode, UnknownAttribute, ReflectedFrom, Realm, Nonce, MessageIntegritySha256, XorMappedAddress, Padding, ResponsePort, Software, AlternateServer, Fingerprint, Userhash, ResponseOrigin, OtherAddress, Dummy };
+	public enum MessageAttributeType {
+		MappedAddress, ResponseAddress, ChangeRequest, SourceAddress, ChangedAddress,
+		Username, Password, MessageIntegrity, ErrorCode, UnknownAttribute, ReflectedFrom,
+		ChannelNumber, Lifetime, XorPeerAddress, Data, Realm, Nonce, XorRelayedAddress,
+		EvenPort, RequestedTransport, DontFragment, MessageIntegritySha256,
+		XorMappedAddress, ReservationToken, Padding, ResponsePort, Software,
+		AlternateServer, Fingerprint, Userhash, ResponseOrigin, OtherAddress, Dummy
+	};
 	final static int MAPPEDADDRESS = 0x0001;
 	final static int RESPONSEADDRESS = 0x0002;
 	final static int CHANGEREQUEST = 0x0003;
@@ -24,10 +31,20 @@ public interface MessageAttributeInterface {
 	final static int ERRORCODE = 0x0009;
 	final static int UNKNOWNATTRIBUTE = 0x000a;
 	final static int REFLECTEDFROM = 0x000b;
+	// RFC 5766 (TURN) attributes
+	final static int CHANNELNUMBER = 0x000c;
+	final static int LIFETIME = 0x000d;
+	final static int XORPEERADDRESS = 0x0012;
+	final static int DATA = 0x0013;
 	final static int REALM = 0x0014;
 	final static int NONCE = 0x0015;
+	final static int XORRELAYEDADDRESS = 0x0016;
+	final static int EVENPORT = 0x0018;
+	final static int REQUESTEDTRANSPORT = 0x0019;
+	final static int DONTFRAGMENT = 0x001a;
 	final static int MESSAGEINTEGRITYSHA256 = 0x001c;
 	final static int XORMAPPEDADDRESS = 0x0020;
+	final static int RESERVATIONTOKEN = 0x0022;
 	final static int PADDING = 0x0026;
 	final static int RESPONSEPORT = 0x0027;
 	final static int XORMAPPEDADDRESS_OPTIONAL = 0x8020;
