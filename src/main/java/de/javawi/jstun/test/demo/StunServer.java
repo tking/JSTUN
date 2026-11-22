@@ -52,8 +52,9 @@ import de.javawi.jstun.util.JstunVersion;
 import de.javawi.jstun.util.UtilityException;
 
 /*
- * This class implements a STUN server as described in RFC 3489.
- * The server requires a machine that is dual-homed to be functional. 
+ * This class implements a STUN server supporting RFC 3489, RFC 5389/8489, and RFC 5780.
+ * The server requires two IP addresses per enabled address family (dual-homed) and can run
+ * in IPv4-only, IPv6-only, or dual-stack (IPv4 and IPv6 simultaneously) mode.
  */
 public class StunServer {
 	private static final Logger LOGGER = LoggerFactory.getLogger(StunServer.class);
@@ -68,6 +69,8 @@ public class StunServer {
 	static final String STATS_INTERVAL_PROPERTY = "jstun.stats.interval";
 	static final long DEFAULT_STATS_INTERVAL_SECONDS = 60L;
 	Vector<DatagramSocket> sockets;
+	private final boolean ipv4Enabled;
+	private final boolean ipv6Enabled;
 	private final Vector<StunServerReceiverThread> receiverThreads = new Vector<StunServerReceiverThread>();
 	private final StunServerStats stats = new StunServerStats();
 	private ScheduledExecutorService statsScheduler;
@@ -138,10 +141,26 @@ public class StunServer {
 		return receiverThreads;
 	}
 	
+	public boolean isIpv4Enabled() {
+		return ipv4Enabled;
+	}
+
+	public boolean isIpv6Enabled() {
+		return ipv6Enabled;
+	}
+
+	/**
+	 * Creates a single-family STUN server (IPv4-only or IPv6-only) bound to two addresses
+	 * and two ports.
+	 */
 	public StunServer(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary) throws SocketException {
 		this(primaryPort, primary, secondaryPort, secondary, primaryPort, secondaryPort);
 	}
 
+	/**
+	 * Creates a single-family STUN server (IPv4-only or IPv6-only) with independent port
+	 * configuration for the secondary IP address.
+	 */
 	public StunServer(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary,
 			int secondaryIpPrimaryPort, int secondaryIpSecondaryPort) throws SocketException {
 		if (primary == null || secondary == null) {
@@ -151,11 +170,93 @@ public class StunServer {
 			throw new IllegalArgumentException(
 					"Primary and secondary STUN server addresses must use the same IP address family (both IPv4 or both IPv6)");
 		}
-		sockets = new Vector<DatagramSocket>();
-		sockets.add(new DatagramSocket(primaryPort, primary));
-		sockets.add(new DatagramSocket(secondaryPort, primary));
-		sockets.add(new DatagramSocket(secondaryIpPrimaryPort, secondary));
-		sockets.add(new DatagramSocket(secondaryIpSecondaryPort, secondary));
+		this.sockets = new Vector<DatagramSocket>();
+		this.ipv4Enabled = primary instanceof Inet4Address;
+		this.ipv6Enabled = primary instanceof Inet6Address;
+		bindFamilyGroup(primaryPort, primary, secondaryPort, secondary, secondaryIpPrimaryPort, secondaryIpSecondaryPort);
+	}
+
+	/**
+	 * Creates an optional dual-stack STUN server supporting IPv4-only, IPv6-only, or
+	 * simultaneous IPv4 and IPv6 operation sharing {@code primaryPort} and {@code secondaryPort}.
+	 * <p>
+	 * Pass {@code null} for both IPv4 addresses to run IPv6-only, {@code null} for both IPv6
+	 * addresses to run IPv4-only, or non-null pairs for both to run dual-stack.
+	 */
+	public StunServer(int primaryPort, InetAddress primaryIpv4, int secondaryPort, InetAddress secondaryIpv4,
+			InetAddress primaryIpv6, InetAddress secondaryIpv6) throws SocketException {
+		this(primaryPort, primaryIpv4, secondaryPort, secondaryIpv4, primaryPort, secondaryPort,
+				primaryPort, primaryIpv6, secondaryPort, secondaryIpv6, primaryPort, secondaryPort);
+	}
+
+	/**
+	 * Creates an optional dual-stack STUN server supporting IPv4-only, IPv6-only, or
+	 * simultaneous IPv4 and IPv6 operation with independent port assignments per socket.
+	 * <p>
+	 * Pass {@code null} for both IPv4 addresses to run IPv6-only, {@code null} for both IPv6
+	 * addresses to run IPv4-only, or non-null pairs for both to run dual-stack.
+	 */
+	public StunServer(int ipv4PrimaryPort, InetAddress primaryIpv4, int ipv4SecondaryPort, InetAddress secondaryIpv4,
+			int secondaryIpv4PrimaryPort, int secondaryIpv4SecondaryPort,
+			int ipv6PrimaryPort, InetAddress primaryIpv6, int ipv6SecondaryPort, InetAddress secondaryIpv6,
+			int secondaryIpv6PrimaryPort, int secondaryIpv6SecondaryPort) throws SocketException {
+		if ((primaryIpv4 == null) != (secondaryIpv4 == null)) {
+			throw new IllegalArgumentException("Both primary and secondary IPv4 addresses must be provided together (or both null)");
+		}
+		if ((primaryIpv6 == null) != (secondaryIpv6 == null)) {
+			throw new IllegalArgumentException("Both primary and secondary IPv6 addresses must be provided together (or both null)");
+		}
+		if (primaryIpv4 == null && primaryIpv6 == null) {
+			throw new IllegalArgumentException("At least one address family (IPv4 or IPv6) must be configured");
+		}
+		if (primaryIpv4 != null && (!(primaryIpv4 instanceof Inet4Address) || !(secondaryIpv4 instanceof Inet4Address))) {
+			throw new IllegalArgumentException("IPv4 primary and secondary addresses must be IPv4 addresses");
+		}
+		if (primaryIpv6 != null && (!(primaryIpv6 instanceof Inet6Address) || !(secondaryIpv6 instanceof Inet6Address))) {
+			throw new IllegalArgumentException("IPv6 primary and secondary addresses must be IPv6 addresses");
+		}
+		this.sockets = new Vector<DatagramSocket>();
+		this.ipv4Enabled = primaryIpv4 != null;
+		this.ipv6Enabled = primaryIpv6 != null;
+		try {
+			if (ipv4Enabled) {
+				bindFamilyGroup(ipv4PrimaryPort, primaryIpv4, ipv4SecondaryPort, secondaryIpv4,
+						secondaryIpv4PrimaryPort, secondaryIpv4SecondaryPort);
+			}
+			if (ipv6Enabled) {
+				bindFamilyGroup(ipv6PrimaryPort, primaryIpv6, ipv6SecondaryPort, secondaryIpv6,
+						secondaryIpv6PrimaryPort, secondaryIpv6SecondaryPort);
+			}
+		} catch (SocketException se) {
+			for (DatagramSocket s : sockets) {
+				if (s != null && !s.isClosed()) {
+					s.close();
+				}
+			}
+			sockets.clear();
+			throw se;
+		}
+	}
+
+	private void bindFamilyGroup(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary,
+			int secondaryIpPrimaryPort, int secondaryIpSecondaryPort) throws SocketException {
+		DatagramSocket[] group = new DatagramSocket[4];
+		try {
+			group[0] = new DatagramSocket(primaryPort, primary);
+			group[1] = new DatagramSocket(secondaryPort, primary);
+			group[2] = new DatagramSocket(secondaryIpPrimaryPort, secondary);
+			group[3] = new DatagramSocket(secondaryIpSecondaryPort, secondary);
+		} catch (SocketException se) {
+			for (DatagramSocket s : group) {
+				if (s != null && !s.isClosed()) {
+					s.close();
+				}
+			}
+			throw se;
+		}
+		for (DatagramSocket s : group) {
+			sockets.add(s);
+		}
 	}
 
 	static String formatEndpoint(InetAddress address, int port) {
@@ -191,7 +292,14 @@ public class StunServer {
 	}
 
 	public void stop() {
-		if (!doRun && (statsScheduler == null || statsScheduler.isShutdown())) {
+		boolean anyOpen = false;
+		for (DatagramSocket socket : sockets) {
+			if (!socket.isClosed()) {
+				anyOpen = true;
+				break;
+			}
+		}
+		if (!doRun && !anyOpen && (statsScheduler == null || statsScheduler.isShutdown())) {
 			return;
 		}
 		doRun = false;
@@ -263,10 +371,12 @@ public class StunServer {
 			super("stun-recv-" + formatEndpoint(datagramSocket.getLocalAddress(), datagramSocket.getLocalPort()));
 			this.receiverSocket = datagramSocket;
 			int idx = sockets.indexOf(receiverSocket);
-			if (idx >= 0 && sockets.size() == 4) {
-				changedPort = sockets.get(idx ^ 1);
-				changedIP = sockets.get(idx ^ 2);
-				changedPortIP = sockets.get(idx ^ 3);
+			if (idx >= 0 && (sockets.size() % 4) == 0) {
+				int groupBase = (idx / 4) * 4;
+				int localIdx = idx % 4;
+				changedPort = sockets.get(groupBase + (localIdx ^ 1));
+				changedIP = sockets.get(groupBase + (localIdx ^ 2));
+				changedPortIP = sockets.get(groupBase + (localIdx ^ 3));
 			}
 			this.receiverAddress = receiverSocket.getLocalAddress();
 			this.receiverPort = receiverSocket.getLocalPort();
@@ -567,32 +677,100 @@ public class StunServer {
 		return logLevel;
 	}
 
+	/**
+	 * Parses CLI arguments and constructs a {@link StunServer} in IPv4-only, IPv6-only,
+	 * or dual-stack (IPv4 + IPv6) mode.
+	 * <p>
+	 * Supported forms:
+	 * <ul>
+	 *   <li>4 args: {@code PORT1 IP1 PORT2 IP2} (IPv4-only or IPv6-only)</li>
+	 *   <li>6 args: {@code PORT1 IP1 PORT2 IP2 IP3 IP4} (dual-stack sharing PORT1/PORT2 across IPv4 and IPv6)</li>
+	 *   <li>8 args: {@code PORT1 IP1 PORT2 IP2 PORT3 IP3 PORT4 IP4} (dual-stack with independent IPv4 and IPv6 ports)</li>
+	 * </ul>
+	 */
+	public static StunServer createFromArgs(String[] args) throws SocketException, UnknownHostException {
+		if (args == null || (args.length != 4 && args.length != 6 && args.length != 8)) {
+			throw new IllegalArgumentException("Expected 4, 6, or 8 arguments");
+		}
+		int port1 = Integer.parseInt(args[0]);
+		InetAddress ip1 = InetAddress.getByName(args[1]);
+		int port2 = Integer.parseInt(args[2]);
+		InetAddress ip2 = InetAddress.getByName(args[3]);
+		if (args.length == 4) {
+			return new StunServer(port1, ip1, port2, ip2);
+		}
+
+		final int port3;
+		final InetAddress ip3;
+		final int port4;
+		final InetAddress ip4;
+		if (args.length == 6) {
+			port3 = port1;
+			ip3 = InetAddress.getByName(args[4]);
+			port4 = port2;
+			ip4 = InetAddress.getByName(args[5]);
+		} else {
+			port3 = Integer.parseInt(args[4]);
+			ip3 = InetAddress.getByName(args[5]);
+			port4 = Integer.parseInt(args[6]);
+			ip4 = InetAddress.getByName(args[7]);
+		}
+
+		boolean firstIsV4 = (ip1 instanceof Inet4Address) && (ip2 instanceof Inet4Address);
+		boolean firstIsV6 = (ip1 instanceof Inet6Address) && (ip2 instanceof Inet6Address);
+		boolean secondIsV4 = (ip3 instanceof Inet4Address) && (ip4 instanceof Inet4Address);
+		boolean secondIsV6 = (ip3 instanceof Inet6Address) && (ip4 instanceof Inet6Address);
+
+		if (firstIsV4 && secondIsV6) {
+			return new StunServer(port1, ip1, port2, ip2, port1, port2,
+					port3, ip3, port4, ip4, port3, port4);
+		}
+		if (firstIsV6 && secondIsV4) {
+			return new StunServer(port3, ip3, port4, ip4, port3, port4,
+					port1, ip1, port2, ip2, port1, port2);
+		}
+		throw new IllegalArgumentException(
+				"Dual-stack mode requires one IPv4 address pair and one IPv6 address pair");
+	}
+
+	private static void printUsage() {
+		System.out.println("usage:");
+		System.out.println("  Single-stack (IPv4-only or IPv6-only):");
+		System.out.println("    java de.javawi.jstun.test.demo.StunServer PORT1 IP1 PORT2 IP2");
+		System.out.println("  Dual-stack (IPv4 and IPv6 sharing PORT1/PORT2):");
+		System.out.println("    java de.javawi.jstun.test.demo.StunServer PORT1 IPv4_1 PORT2 IPv4_2 IPv6_1 IPv6_2");
+		System.out.println("  Dual-stack (IPv4 and IPv6 with independent ports):");
+		System.out.println("    java de.javawi.jstun.test.demo.StunServer PORT1 IPv4_1 PORT2 IPv4_2 PORT1_V6 IPv6_1 PORT2_V6 IPv6_2");
+		System.out.println();
+		System.out.println(" PORT1 / PORT2       - primary and secondary UDP ports (e.g., 3478 and 3479)");
+		System.out.println(" IP1 / IP2           - primary and secondary IP addresses (both IPv4 or both IPv6)");
+		System.out.println(" IPv6_1 / IPv6_2     - optional primary and secondary IPv6 addresses for dual-stack mode");
+	}
+
 	/*
-	 * To invoke the STUN server two IP addresses and two ports are required.
+	 * Supports IPv4-only (4 args), IPv6-only (4 args), or simultaneous dual-stack IPv4+IPv6 (6 or 8 args).
 	 */
 	public static void main(String args[]) {
 		try {
-			if (args.length != 4) {
-				System.out.println("usage: java de.javawi.jstun.test.demo.StunServer PORT1 IP1 PORT2 IP2");
-				System.out.println();
-				System.out.println(" PORT1 - the first port that should be used by the server");
-				System.out.println("   IP1 - the first ip address that should be used by the server");
-				System.out.println(" PORT2 - the second port that should be used by the server");
-				System.out.println("   IP2 - the second ip address that should be used by the server");
+			if (args.length != 4 && args.length != 6 && args.length != 8) {
+				printUsage();
 				System.exit(0);
 			}
 			String configuredLevel = System.getProperty(LOG_LEVEL_PROPERTY);
 			Level logLevel = resolveLogLevel(configuredLevel);
 			Handler fh = createLogFileHandler(LOG_FILE_PATTERN, logLevel);
 			configureLogging(java.util.logging.Logger.getLogger("de.javawi.jstun"), fh, configuredLevel);
-			StunServer ss = new StunServer(Integer.parseInt(args[0]), InetAddress.getByName(args[1]),
-										   Integer.parseInt(args[2]), InetAddress.getByName(args[3]));
+			StunServer ss = createFromArgs(args);
 			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
 				LOGGER.info("Shutdown signal received; stopping STUN server...");
 				ss.stop();
 			}, "stun-shutdown-hook"));
-			LOGGER.info("Starting {}", JstunVersion.SOFTWARE);
+			LOGGER.info("Starting {} (IPv4={}, IPv6={})", JstunVersion.SOFTWARE, ss.isIpv4Enabled(), ss.isIpv6Enabled());
 			ss.start();
+		} catch (IllegalArgumentException iae) {
+			LOGGER.error("Invalid STUN server arguments: {}", iae.getMessage());
+			System.err.println("Error: " + iae.getMessage());
+			printUsage();
 		} catch (SocketException se) {
 			LOGGER.error("SocketException while starting STUN server: {}", se.getMessage(), se);
 		} catch (UnknownHostException uhe) {

@@ -49,7 +49,7 @@ Supported RFCs & Features
 
 * **Dual-Homed STUN Server & Dual-Stack Transport**
   * **IPv4 / IPv6 Support:** Full dual-stack address family support across attributes, discovery tests, and server sockets (thanks to [fourjr](https://github.com/fourjr)).
-  * **Dual-Homed `StunServer`:** Handles standard Binding Requests (with or without `CHANGE-REQUEST`), emits `MAPPED-ADDRESS`, `XOR-MAPPED-ADDRESS`, `SOURCE-ADDRESS`, `RESPONSE-ORIGIN`, `CHANGED-ADDRESS`, `OTHER-ADDRESS`, `SOFTWARE`, and `FINGERPRINT`, honors `RESPONSE-PORT` and `RESPONSE-ADDRESS`, echoes `PADDING` up to jumbo-frame sizes (`9216` bytes), silently ignores `BindingIndication`, and returns `ERROR-CODE` (`420`) with `UNKNOWN-ATTRIBUTES` on unknown mandatory attributes.
+  * **Dual-Homed & Optional Dual-Stack `StunServer`:** Runs in **IPv4-only**, **IPv6-only**, or simultaneous **IPv4 + IPv6 dual-stack** mode in a single server instance (binding 4 sockets per enabled family). Handles standard Binding Requests (with or without `CHANGE-REQUEST`), emits `MAPPED-ADDRESS`, `XOR-MAPPED-ADDRESS`, `SOURCE-ADDRESS`, `RESPONSE-ORIGIN`, `CHANGED-ADDRESS`, `OTHER-ADDRESS`, `SOFTWARE`, and `FINGERPRINT`, honors `RESPONSE-PORT` and `RESPONSE-ADDRESS`, echoes `PADDING` up to jumbo-frame sizes (`9216` bytes), silently ignores `BindingIndication`, and returns `ERROR-CODE` (`420`) with `UNKNOWN-ATTRIBUTES` on unknown mandatory attributes.
 
 
 How does it work?
@@ -106,9 +106,16 @@ Boolean hairpinningSupported = hairpinTest.test();
 ```
 
 ### STUN Server
-A `JSTUN`-based STUN server is included and requires a dual-homed machine (two IP addresses and two ports). You can run the self-contained standalone server JAR directly:
+A `JSTUN`-based STUN server is included and requires two IP addresses and two ports per enabled address family (dual-homed). It supports **IPv4-only**, **IPv6-only**, or simultaneous **dual-stack (IPv4 + IPv6)** operation from a single process using the standalone shaded JAR:
 ```bash
+# Single-stack (IPv4-only or IPv6-only)
 java -jar jstun-1.1.0-server.jar PORT1 IP1 PORT2 IP2
+
+# Dual-stack (IPv4 and IPv6 sharing PORT1/PORT2, e.g. 3478 and 3479)
+java -jar jstun-1.1.0-server.jar PORT1 IPv4_1 PORT2 IPv4_2 IPv6_1 IPv6_2
+
+# Dual-stack (IPv4 and IPv6 with independent ports)
+java -jar jstun-1.1.0-server.jar PORT1 IPv4_1 PORT2 IPv4_2 PORT1_V6 IPv6_1 PORT2_V6 IPv6_2
 ```
 Or using the standard library JAR with SLF4J on the classpath:
 ```bash

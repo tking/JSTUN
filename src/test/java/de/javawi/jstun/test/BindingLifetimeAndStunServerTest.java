@@ -16,9 +16,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -643,6 +645,145 @@ public class BindingLifetimeAndStunServerTest {
 			assertEquals(2, stats.getBindingResponsesSent());
 		} finally {
 			server.stop();
+		}
+	}
+
+	@Test
+	public void testStunServerDualStackSimultaneousIpv4AndIpv6AndIpv6Only() throws Exception {
+		InetAddress ipv4 = InetAddress.getByName("127.0.0.1");
+		InetAddress ipv6;
+		try {
+			ipv6 = InetAddress.getByName("::1");
+			try (DatagramSocket probe = new DatagramSocket(0, ipv6)) {
+				assertTrue(probe.getLocalPort() > 0);
+			}
+		} catch (Exception e) {
+			assumeTrue(false, "IPv6 loopback ::1 not available in this environment");
+			return;
+		}
+
+		// 1. IPv6-only via optional-family constructor (null IPv4 pair)
+		int[] v6OnlyPorts = findFourFreePorts(ipv6);
+		StunServer v6Only = new StunServer(
+				0, null, 0, null, 0, 0,
+				v6OnlyPorts[0], ipv6, v6OnlyPorts[1], ipv6, v6OnlyPorts[2], v6OnlyPorts[3]);
+		v6Only.setStatsIntervalSeconds(0);
+		assertFalse(v6Only.isIpv4Enabled());
+		assertTrue(v6Only.isIpv6Enabled());
+		v6Only.start();
+		try (DatagramSocket v6Client = new DatagramSocket(0, ipv6)) {
+			v6Client.setSoTimeout(1000);
+			MessageHeader req = new MessageHeader(MessageHeaderType.BindingRequest);
+			req.generateTransactionID();
+			byte[] reqBytes = req.getBytesWithFingerprint();
+			v6Client.send(new DatagramPacket(reqBytes, reqBytes.length, ipv6, v6OnlyPorts[0]));
+
+			DatagramPacket recv = new DatagramPacket(new byte[512], 512);
+			v6Client.receive(recv);
+			assertEquals(v6OnlyPorts[0], recv.getPort());
+			MessageHeader resp = MessageHeader.parseHeader(recv.getData());
+			resp.parseAttributes(recv.getData());
+			XorMappedAddress xma = (XorMappedAddress) resp.getMessageAttribute(MessageAttributeType.XorMappedAddress);
+			assertNotNull(xma);
+			assertTrue(xma.getAddress().getInetAddress() instanceof Inet6Address);
+			assertEquals(v6Client.getLocalPort(), xma.getPort());
+		} finally {
+			v6Only.stop();
+		}
+
+		// 2. Simultaneous dual-stack (IPv4 + IPv6 in a single StunServer instance)
+		int[] v4Ports = findFourFreePorts(ipv4);
+		int[] v6Ports = findFourFreePorts(ipv6);
+		StunServer dualStack = new StunServer(
+				v4Ports[0], ipv4, v4Ports[1], ipv4, v4Ports[2], v4Ports[3],
+				v6Ports[0], ipv6, v6Ports[1], ipv6, v6Ports[2], v6Ports[3]);
+		dualStack.setStatsIntervalSeconds(0);
+		assertTrue(dualStack.isIpv4Enabled());
+		assertTrue(dualStack.isIpv6Enabled());
+		dualStack.start();
+
+		try (DatagramSocket v4Client = new DatagramSocket(0, ipv4);
+				DatagramSocket v6Client = new DatagramSocket(0, ipv6)) {
+			v4Client.setSoTimeout(1000);
+			v6Client.setSoTimeout(1000);
+
+			// IPv4 standard BindingRequest + CHANGE-REQUEST (IP + port) stays inside IPv4 group
+			MessageHeader v4Req = new MessageHeader(MessageHeaderType.BindingRequest);
+			v4Req.generateTransactionID();
+			byte[] v4Bytes = v4Req.getBytesWithFingerprint();
+			v4Client.send(new DatagramPacket(v4Bytes, v4Bytes.length, ipv4, v4Ports[0]));
+
+			DatagramPacket v4Recv = new DatagramPacket(new byte[512], 512);
+			v4Client.receive(v4Recv);
+			assertEquals(v4Ports[0], v4Recv.getPort());
+			MessageHeader v4Resp = MessageHeader.parseHeader(v4Recv.getData());
+			v4Resp.parseAttributes(v4Recv.getData());
+			XorMappedAddress v4Xma = (XorMappedAddress) v4Resp.getMessageAttribute(MessageAttributeType.XorMappedAddress);
+			OtherAddress v4Oa = (OtherAddress) v4Resp.getMessageAttribute(MessageAttributeType.OtherAddress);
+			assertNotNull(v4Xma);
+			assertNotNull(v4Oa);
+			assertFalse(v4Xma.getAddress().getInetAddress() instanceof Inet6Address);
+			assertFalse(v4Oa.getAddress().getInetAddress() instanceof Inet6Address);
+			assertEquals(v4Ports[3], v4Oa.getPort());
+
+			MessageHeader v4CrReq = new MessageHeader(MessageHeaderType.BindingRequest);
+			v4CrReq.generateTransactionID();
+			ChangeRequest v4Cr = new ChangeRequest();
+			v4Cr.setChangeIP();
+			v4Cr.setChangePort();
+			v4CrReq.addMessageAttribute(v4Cr);
+			byte[] v4CrBytes = v4CrReq.getBytesWithFingerprint();
+			v4Client.send(new DatagramPacket(v4CrBytes, v4CrBytes.length, ipv4, v4Ports[0]));
+
+			DatagramPacket v4CrRecv = new DatagramPacket(new byte[512], 512);
+			v4Client.receive(v4CrRecv);
+			assertEquals(v4Ports[3], v4CrRecv.getPort());
+
+			// IPv6 standard BindingRequest + CHANGE-REQUEST (IP + port) stays inside IPv6 group
+			MessageHeader v6Req = new MessageHeader(MessageHeaderType.BindingRequest);
+			v6Req.generateTransactionID();
+			byte[] v6Bytes = v6Req.getBytesWithFingerprint();
+			v6Client.send(new DatagramPacket(v6Bytes, v6Bytes.length, ipv6, v6Ports[0]));
+
+			DatagramPacket v6Recv = new DatagramPacket(new byte[512], 512);
+			v6Client.receive(v6Recv);
+			assertEquals(v6Ports[0], v6Recv.getPort());
+			assertTrue(v6Recv.getAddress() instanceof Inet6Address);
+			MessageHeader v6Resp = MessageHeader.parseHeader(v6Recv.getData());
+			v6Resp.parseAttributes(v6Recv.getData());
+			XorMappedAddress v6Xma = (XorMappedAddress) v6Resp.getMessageAttribute(MessageAttributeType.XorMappedAddress);
+			OtherAddress v6Oa = (OtherAddress) v6Resp.getMessageAttribute(MessageAttributeType.OtherAddress);
+			ResponseOrigin v6Ro = (ResponseOrigin) v6Resp.getMessageAttribute(MessageAttributeType.ResponseOrigin);
+			assertNotNull(v6Xma);
+			assertNotNull(v6Oa);
+			assertNotNull(v6Ro);
+			assertTrue(v6Xma.getAddress().getInetAddress() instanceof Inet6Address);
+			assertTrue(v6Oa.getAddress().getInetAddress() instanceof Inet6Address);
+			assertTrue(v6Ro.getAddress().getInetAddress() instanceof Inet6Address);
+			assertEquals(v6Client.getLocalPort(), v6Xma.getPort());
+			assertEquals(v6Ports[0], v6Ro.getPort());
+			assertEquals(v6Ports[3], v6Oa.getPort());
+
+			MessageHeader v6CrReq = new MessageHeader(MessageHeaderType.BindingRequest);
+			v6CrReq.generateTransactionID();
+			ChangeRequest v6Cr = new ChangeRequest();
+			v6Cr.setChangeIP();
+			v6Cr.setChangePort();
+			v6CrReq.addMessageAttribute(v6Cr);
+			byte[] v6CrBytes = v6CrReq.getBytesWithFingerprint();
+			v6Client.send(new DatagramPacket(v6CrBytes, v6CrBytes.length, ipv6, v6Ports[0]));
+
+			DatagramPacket v6CrRecv = new DatagramPacket(new byte[512], 512);
+			v6Client.receive(v6CrRecv);
+			assertEquals(v6Ports[3], v6CrRecv.getPort());
+			assertTrue(v6CrRecv.getAddress() instanceof Inet6Address);
+
+			// Shared stats track both IPv4 and IPv6 requests
+			assertEquals(4, dualStack.getStats().getBindingRequests());
+			assertEquals(4, dualStack.getStats().getBindingResponsesSent());
+			assertEquals(2, dualStack.getStats().getChangeRequests());
+		} finally {
+			dualStack.stop();
 		}
 	}
 }
