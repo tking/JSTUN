@@ -13,6 +13,7 @@ package de.javawi.jstun.test.demo;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,13 +55,20 @@ public class TurnClientDemo implements Runnable {
 	}
 
 	public static void main(String[] args) {
-		if (args.length != 4) {
-			System.out.println("usage: java de.javawi.jstun.test.demo.TurnClientDemo SERVER PORT USERNAME PASSWORD");
-			System.exit(0);
-		}
 		try {
-			InetAddress wildcard = InetAddress.getByName("0.0.0.0");
-			new TurnClientDemo(wildcard, args[0], Integer.parseInt(args[1]), args[2], args[3]).run();
+			DemoIpVersion.ParsedArgs parsed = DemoIpVersion.parse(args);
+			List<String> pos = parsed.getPositionalArgs();
+			if (pos.size() != 4) {
+				System.out.println("usage: java de.javawi.jstun.test.demo.TurnClientDemo [-4|--ipv4 | -6|--ipv6] SERVER PORT USERNAME PASSWORD");
+				return;
+			}
+			DemoIpVersion ipVersion = parsed.getIpVersion();
+			InetAddress target = ipVersion.resolveHost(pos.get(0));
+			InetAddress wildcard = ipVersion.wildcardForTarget(target);
+			new TurnClientDemo(wildcard, target.getHostAddress(), Integer.parseInt(pos.get(1)), pos.get(2), pos.get(3)).run();
+		} catch (IllegalArgumentException iae) {
+			System.err.println("Error: " + iae.getMessage());
+			System.err.println("usage: java de.javawi.jstun.test.demo.TurnClientDemo [-4|--ipv4 | -6|--ipv6] SERVER PORT USERNAME PASSWORD");
 		} catch (Exception e) {
 			LOGGER.error("Error initializing TurnClientDemo: {}", e.getMessage(), e);
 			System.out.println(e.getMessage());

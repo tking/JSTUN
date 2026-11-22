@@ -65,27 +65,27 @@ How does it work?
 ```
 
 ### Client Discovery
-To run the classic NAT discovery demo (`DiscoveryTestDemo`), RFC 5780 NAT behavior discovery demo (`NatBehaviorDiscoveryTestDemo`), RFC 5780 Path MTU discovery demo (`MtuDiscoveryTestDemo`), RFC 5780 NAT hairpinning discovery demo (`HairpinningDiscoveryTestDemo`), fast discovery demo (`FastDiscoveryTestDemo`), or UDP binding lifetime discovery demo (`BindingLifetimeTestDemo`):
+To run the classic NAT discovery demo (`DiscoveryTestDemo`), RFC 5780 NAT behavior discovery demo (`NatBehaviorDiscoveryTestDemo`), RFC 5780 Path MTU discovery demo (`MtuDiscoveryTestDemo`), RFC 5780 NAT hairpinning discovery demo (`HairpinningDiscoveryTestDemo`), fast discovery demo (`FastDiscoveryTestDemo`), or UDP binding lifetime discovery demo (`BindingLifetimeTestDemo`) — all client demos accept optional `-4` / `--ipv4` or `-6` / `--ipv6` switches to force IPv4 or IPv6 (omitting the switch uses dual-stack auto-detection):
 ```bash
-# Classic RFC 3489 NAT Discovery
+# Classic RFC 3489 NAT Discovery (add -4 or -6 to force IPv4/IPv6)
 java -cp jstun-1.1.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
-  de.javawi.jstun.test.demo.DiscoveryTestDemo
+  de.javawi.jstun.test.demo.DiscoveryTestDemo [-4|-6]
 
 # RFC 5780 NAT Mapping & Filtering Behavior Discovery
 java -cp jstun-1.1.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
-  de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo
+  de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo [-4|-6]
 
 # RFC 5780 UDP Path MTU Discovery (576..9000 bytes, jumbo-frame capable)
 java -cp jstun-1.1.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
-  de.javawi.jstun.test.demo.MtuDiscoveryTestDemo
+  de.javawi.jstun.test.demo.MtuDiscoveryTestDemo [-4|-6]
 
 # RFC 5780 NAT Hairpinning Behavior Discovery
 java -cp jstun-1.1.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
-  de.javawi.jstun.test.demo.HairpinningDiscoveryTestDemo
+  de.javawi.jstun.test.demo.HairpinningDiscoveryTestDemo [-4|-6]
 
 # UDP Binding Lifetime Discovery
 java -cp jstun-1.1.1.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
-  de.javawi.jstun.test.demo.BindingLifetimeTestDemo
+  de.javawi.jstun.test.demo.BindingLifetimeTestDemo [-4|-6]
 ```
 *(Or using the standalone shaded JAR without extra classpath entries: `java -cp jstun-1.1.1-server.jar de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo`. If you build from source with `mvn package`, the JARs are placed in the `target/` directory.)*
 
@@ -133,17 +133,17 @@ Run the NIO UDP TURN relay server with one or more `USER:PASS` credentials:
 java -cp jstun-1.1.1-server.jar \
   de.javawi.jstun.turn.TurnServer 3478 0.0.0.0 example.org alice:secret
 ```
-Test relay allocation from the CLI with `TurnClientDemo`:
+Test relay allocation from the CLI with `TurnClientDemo` (supports optional `-4`/`-6`):
 ```bash
 java -cp jstun-1.1.1-server.jar \
-  de.javawi.jstun.test.demo.TurnClientDemo turn.example.org 3478 alice secret
+  de.javawi.jstun.test.demo.TurnClientDemo [-4|-6] turn.example.org 3478 alice secret
 ```
 
 ### STUN Consent Freshness (RFC 7675)
-Run the self-contained RFC 7675 loopback demo (or pass `<host> <port> <username> <password>` for a live remote peer):
+Run the self-contained RFC 7675 loopback demo (`-4` for `127.0.0.1`, `-6` for `::1`) or pass `[-4|-6] <host> <port> <username> <password>` for a live remote peer:
 ```bash
 java -cp jstun-1.1.1-server.jar \
-  de.javawi.jstun.test.demo.ConsentFreshnessDemo
+  de.javawi.jstun.test.demo.ConsentFreshnessDemo [-4|-6]
 ```
 
 

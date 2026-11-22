@@ -11,6 +11,7 @@
 
 package de.javawi.jstun.test.demo;
 
+import java.net.InetAddress;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -26,11 +27,17 @@ public class BindingLifetimeTestDemo {
 
 	public static void main(String args[]) {
 		try {
+			DemoIpVersion.ParsedArgs parsed = DemoIpVersion.parse(args);
+			if (!parsed.getPositionalArgs().isEmpty()) {
+				System.err.println("usage: java de.javawi.jstun.test.demo.BindingLifetimeTestDemo [-4|--ipv4 | -6|--ipv6]");
+				return;
+			}
 			Handler fh = new FileHandler("logging.txt");
 			fh.setFormatter(new SimpleFormatter());
 			java.util.logging.Logger.getLogger("de.javawi.jstun").addHandler(fh);
 			java.util.logging.Logger.getLogger("de.javawi.jstun").setLevel(Level.ALL);
-			BindingLifetimeTest test = new BindingLifetimeTest("jstun.t-king.de", 3478);
+			InetAddress serverAddr = parsed.getIpVersion().resolveHost("jstun.t-king.de");
+			BindingLifetimeTest test = new BindingLifetimeTest(serverAddr.getHostAddress(), 3478);
 			// iphone-stun.freenet.de:3478
 			// larry.gloo.net:3478
 			// stun.xten.net:3478
@@ -44,6 +51,9 @@ public class BindingLifetimeTestDemo {
 					if (test.isCompleted()) continueWhile = false;
 				}
 			}
+		} catch (IllegalArgumentException iae) {
+			System.err.println("Error: " + iae.getMessage());
+			System.err.println("usage: java de.javawi.jstun.test.demo.BindingLifetimeTestDemo [-4|--ipv4 | -6|--ipv6]");
 		} catch (Exception e) {
 			LOGGER.error("Error running BindingLifetimeTestDemo: {}", e.getMessage(), e);
 			System.out.println(e.getMessage());

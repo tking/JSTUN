@@ -13,8 +13,12 @@ package de.javawi.jstun.test.demo;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -204,5 +208,95 @@ public class DemosAndServerTest {
 		String v6Formatted = StunServer.formatEndpoint(ipv6Loopback, 3478);
 		assertTrue(v6Formatted.startsWith("[") && v6Formatted.endsWith("]:3478"),
 				"Expected bracketed IPv6 endpoint, got: " + v6Formatted);
+	}
+
+	@Test
+	public void testDemoIpVersionSwitchParsingResolutionAndFiltering() throws Exception {
+		// Default (no args / null) -> AUTO
+		DemoIpVersion.ParsedArgs def = DemoIpVersion.parse(null);
+		assertEquals(DemoIpVersion.AUTO, def.getIpVersion());
+		assertTrue(def.getPositionalArgs().isEmpty());
+
+		DemoIpVersion.ParsedArgs empty = DemoIpVersion.parse(new String[0]);
+		assertEquals(DemoIpVersion.AUTO, empty.getIpVersion());
+
+		// -4 / --ipv4 and -6 / --ipv6 switches with positional args
+		DemoIpVersion.ParsedArgs v4 = DemoIpVersion.parse(new String[] { "-4", "host", "3478" });
+		assertEquals(DemoIpVersion.IPV4, v4.getIpVersion());
+		assertEquals(List.of("host", "3478"), v4.getPositionalArgs());
+
+		DemoIpVersion.ParsedArgs v4Long = DemoIpVersion.parse(new String[] { "host", "--ipv4" });
+		assertEquals(DemoIpVersion.IPV4, v4Long.getIpVersion());
+		assertEquals(List.of("host"), v4Long.getPositionalArgs());
+
+		DemoIpVersion.ParsedArgs v6 = DemoIpVersion.parse(new String[] { "-6" });
+		assertEquals(DemoIpVersion.IPV6, v6.getIpVersion());
+		assertTrue(v6.getPositionalArgs().isEmpty());
+
+		DemoIpVersion.ParsedArgs v6Long = DemoIpVersion.parse(new String[] { "--ipv6", "peer", "3478" });
+		assertEquals(DemoIpVersion.IPV6, v6Long.getIpVersion());
+		assertEquals(List.of("peer", "3478"), v6Long.getPositionalArgs());
+
+		// Conflicting or unknown flags throw IllegalArgumentException
+		assertThrows(IllegalArgumentException.class, () -> DemoIpVersion.parse(new String[] { "-4", "-6" }));
+		assertThrows(IllegalArgumentException.class, () -> DemoIpVersion.parse(new String[] { "--ipv6", "--ipv4" }));
+		assertThrows(IllegalArgumentException.class, () -> DemoIpVersion.parse(new String[] { "--bogus" }));
+
+		// Family matching, host resolution, wildcard, and loopback helpers
+		InetAddress v4Addr = InetAddress.getByName("127.0.0.1");
+		InetAddress v6Addr = InetAddress.getByName("::1");
+		assertTrue(DemoIpVersion.AUTO.matches(v4Addr));
+		assertTrue(DemoIpVersion.AUTO.matches(v6Addr));
+		assertFalse(DemoIpVersion.AUTO.matches(null));
+		assertTrue(DemoIpVersion.IPV4.matches(v4Addr));
+		assertFalse(DemoIpVersion.IPV4.matches(v6Addr));
+		assertFalse(DemoIpVersion.IPV6.matches(v4Addr));
+		assertTrue(DemoIpVersion.IPV6.matches(v6Addr));
+
+		assertTrue(DemoIpVersion.IPV4.resolveHost("127.0.0.1") instanceof Inet4Address);
+		assertTrue(DemoIpVersion.IPV6.resolveHost("::1") instanceof Inet6Address);
+		assertTrue(DemoIpVersion.AUTO.resolveHost("127.0.0.1") instanceof Inet4Address);
+		assertThrows(UnknownHostException.class, () -> DemoIpVersion.IPV6.resolveHost("127.0.0.1"));
+		assertThrows(UnknownHostException.class, () -> DemoIpVersion.IPV4.resolveHost("::1"));
+
+		assertTrue(DemoIpVersion.IPV4.wildcardForTarget(v4Addr) instanceof Inet4Address);
+		assertTrue(DemoIpVersion.IPV6.wildcardForTarget(v6Addr) instanceof Inet6Address);
+		assertTrue(DemoIpVersion.AUTO.wildcardForTarget(v6Addr) instanceof Inet6Address);
+		assertTrue(DemoIpVersion.AUTO.wildcardForTarget(v4Addr) instanceof Inet4Address);
+
+		assertEquals(v4Addr, DemoIpVersion.AUTO.loopbackAddress());
+		assertEquals(v4Addr, DemoIpVersion.IPV4.loopbackAddress());
+		assertEquals(v6Addr, DemoIpVersion.IPV6.loopbackAddress());
+
+		// Local address enumeration filters match family
+		for (InetAddress addr : DemoIpVersion.IPV4.getLocalAddresses()) {
+			assertTrue(addr instanceof Inet4Address);
+		}
+		for (InetAddress addr : DemoIpVersion.IPV6.getLocalAddresses()) {
+			assertTrue(addr instanceof Inet6Address);
+		}
+
+		// Demo CLI invalid-flag handling returns cleanly without exiting the JVM
+		DiscoveryTestDemo.main(new String[] { "-4", "-6" });
+		FastDiscoveryTestDemo.main(new String[] { "--unknown" });
+		NatBehaviorDiscoveryTestDemo.main(new String[] { "unexpected-arg" });
+		MtuDiscoveryTestDemo.main(new String[] { "--unknown" });
+		HairpinningDiscoveryTestDemo.main(new String[] { "-4", "-6" });
+		BindingLifetimeTestDemo.main(new String[] { "--unknown" });
+		TurnClientDemo.main(new String[] { "-4", "-6" });
+		TurnClientDemo.main(new String[] { "-4" });
+		ConsentFreshnessDemo.main(new String[] { "-4", "-6" });
+		ConsentFreshnessDemo.main(new String[] { "only-one-arg" });
+
+		// ConsentFreshnessDemo loopback over IPv4 (-4) and IPv6 (-6 if ::1 is available)
+		ConsentFreshnessDemo.main(new String[] { "-4" });
+		boolean ipv6Available = false;
+		try (java.net.DatagramSocket probe = new java.net.DatagramSocket(0, v6Addr)) {
+			ipv6Available = probe.getLocalPort() > 0;
+		} catch (Exception ignored) {
+		}
+		if (ipv6Available) {
+			ConsentFreshnessDemo.main(new String[] { "-6" });
+		}
 	}
 }

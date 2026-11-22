@@ -14,6 +14,7 @@ package de.javawi.jstun.test.demo;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -24,23 +25,40 @@ import de.javawi.jstun.consent.ConsentSession;
 /**
  * CLI demonstration of RFC 7675 STUN Usage for Consent Freshness.
  * <p>
- * With no arguments, runs a self-contained loopback demo showing initial consent,
- * authenticated application data sending, and immediate {@code 403 Forbidden} revocation.
- * With {@code <host> <port> <username> <password>}, runs a live consent check against
+ * With no positional arguments, runs a self-contained loopback demo showing initial consent,
+ * authenticated application data sending, and immediate {@code 403 Forbidden} revocation
+ * (use {@code -4}/{@code --ipv4} for {@code 127.0.0.1} or {@code -6}/{@code --ipv6} for {@code ::1}).
+ * With {@code [-4|-6] <host> <port> <username> <password>}, runs a live consent check against
  * a remote ICE/RFC 7675 peer.
  */
 public class ConsentFreshnessDemo {
 
 	public static void main(String[] args) throws Exception {
-		if (args.length >= 4) {
-			String host = args[0];
-			int port = Integer.parseInt(args[1]);
-			String username = args[2];
-			String password = args[3];
-			InetSocketAddress peer = new InetSocketAddress(InetAddress.getByName(host), port);
+		DemoIpVersion.ParsedArgs parsed;
+		try {
+			parsed = DemoIpVersion.parse(args);
+		} catch (IllegalArgumentException iae) {
+			System.err.println("Error: " + iae.getMessage());
+			System.err.println("usage: java de.javawi.jstun.test.demo.ConsentFreshnessDemo [-4|--ipv4 | -6|--ipv6] [HOST PORT USERNAME PASSWORD]");
+			return;
+		}
+		DemoIpVersion ipVersion = parsed.getIpVersion();
+		List<String> pos = parsed.getPositionalArgs();
+		if (pos.size() != 0 && pos.size() != 4) {
+			System.err.println("usage: java de.javawi.jstun.test.demo.ConsentFreshnessDemo [-4|--ipv4 | -6|--ipv6] [HOST PORT USERNAME PASSWORD]");
+			return;
+		}
+
+		if (pos.size() == 4) {
+			String host = pos.get(0);
+			int port = Integer.parseInt(pos.get(1));
+			String username = pos.get(2);
+			String password = pos.get(3);
+			InetAddress peerAddr = ipVersion.resolveHost(host);
+			InetAddress localBind = ipVersion.wildcardForTarget(peerAddr);
+			InetSocketAddress peer = new InetSocketAddress(peerAddr, port);
 			CountDownLatch obtained = new CountDownLatch(1);
-			try (ConsentSession session = new ConsentSession(
-					InetAddress.getByName("0.0.0.0"), peer, username, password)) {
+			try (ConsentSession session = new ConsentSession(localBind, peer, username, password)) {
 				session.setListener(new ConsentListener() {
 					@Override
 					public void onConsentObtained(ConsentSession s) {
@@ -74,7 +92,7 @@ public class ConsentFreshnessDemo {
 		}
 
 		// Self-contained loopback demonstration
-		InetAddress loopback = InetAddress.getByName("127.0.0.1");
+		InetAddress loopback = ipVersion.loopbackAddress();
 		String ufragPair = "remoteUfrag:localUfrag";
 		String icePassword = "VOkJxbRl1RmTxUk/WvJxBt";
 
