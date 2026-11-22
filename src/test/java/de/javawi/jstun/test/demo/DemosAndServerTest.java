@@ -144,10 +144,60 @@ public class DemosAndServerTest {
 			server.stop();
 		}
 
-		// Address-family mismatch and null validation in StunServer constructor
+		// Address-family mismatch and null validation in StunServer constructors
 		InetAddress ipv6Loopback = InetAddress.getByName("::1");
 		assertThrows(IllegalArgumentException.class, () -> new StunServer(0, loopback, 0, ipv6Loopback));
 		assertThrows(IllegalArgumentException.class, () -> new StunServer(0, null, 0, loopback));
+		assertThrows(IllegalArgumentException.class, () -> new StunServer(0, null, 0, null, null, null));
+		assertThrows(IllegalArgumentException.class, () -> new StunServer(0, loopback, 0, null, null, null));
+		assertThrows(IllegalArgumentException.class, () -> new StunServer(0, null, 0, null, ipv6Loopback, null));
+		assertThrows(IllegalArgumentException.class, () -> new StunServer(0, ipv6Loopback, 0, ipv6Loopback, null, null));
+		assertThrows(IllegalArgumentException.class, () -> new StunServer(0, null, 0, null, loopback, loopback));
+
+		// Optional-family IPv4-only constructor
+		StunServer v4Only = new StunServer(0, loopback, 0, loopback, null, null);
+		assertTrue(v4Only.isIpv4Enabled());
+		assertFalse(v4Only.isIpv6Enabled());
+		v4Only.start();
+		try {
+			assertEquals(4, v4Only.getReceiverThreads().size());
+		} finally {
+			v4Only.stop();
+		}
+
+		// CLI argument parsing: 4 args (IPv4-only), 6 args & 8 args (dual-stack in either order), and invalid args
+		assertThrows(IllegalArgumentException.class, () -> StunServer.createFromArgs(new String[] { "3478", "127.0.0.1" }));
+		assertThrows(IllegalArgumentException.class,
+				() -> StunServer.createFromArgs(new String[] { "0", "127.0.0.1", "0", "127.0.0.1", "127.0.0.1", "127.0.0.1" }));
+		StunServer cliV4 = StunServer.createFromArgs(new String[] { "0", "127.0.0.1", "0", "127.0.0.1" });
+		assertTrue(cliV4.isIpv4Enabled());
+		assertFalse(cliV4.isIpv6Enabled());
+		cliV4.stop();
+
+		boolean ipv6Available = false;
+		try (java.net.DatagramSocket probe = new java.net.DatagramSocket(0, ipv6Loopback)) {
+			ipv6Available = probe.getLocalPort() > 0;
+		} catch (Exception ignored) {
+		}
+		if (ipv6Available) {
+			StunServer cliDual6 = StunServer.createFromArgs(
+					new String[] { "0", "127.0.0.1", "0", "127.0.0.1", "::1", "::1" });
+			assertTrue(cliDual6.isIpv4Enabled());
+			assertTrue(cliDual6.isIpv6Enabled());
+			cliDual6.setStatsIntervalSeconds(0);
+			cliDual6.start();
+			try {
+				assertEquals(8, cliDual6.getReceiverThreads().size());
+			} finally {
+				cliDual6.stop();
+			}
+
+			StunServer cliDual8Reversed = StunServer.createFromArgs(
+					new String[] { "0", "::1", "0", "::1", "0", "127.0.0.1", "0", "127.0.0.1" });
+			assertTrue(cliDual8Reversed.isIpv4Enabled());
+			assertTrue(cliDual8Reversed.isIpv6Enabled());
+			cliDual8Reversed.stop();
+		}
 
 		// RFC 5952 IPv6 endpoint bracket formatting
 		assertEquals("127.0.0.1:3478", StunServer.formatEndpoint(loopback, 3478));
