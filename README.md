@@ -60,7 +60,7 @@ How does it work?
 <dependency>
     <groupId>de.javawi.jstun</groupId>
     <artifactId>jstun</artifactId>
-    <version>1.0.4</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -68,26 +68,26 @@ How does it work?
 To run the classic NAT discovery demo (`DiscoveryTestDemo`), RFC 5780 NAT behavior discovery demo (`NatBehaviorDiscoveryTestDemo`), RFC 5780 Path MTU discovery demo (`MtuDiscoveryTestDemo`), RFC 5780 NAT hairpinning discovery demo (`HairpinningDiscoveryTestDemo`), fast discovery demo (`FastDiscoveryTestDemo`), or UDP binding lifetime discovery demo (`BindingLifetimeTestDemo`):
 ```bash
 # Classic RFC 3489 NAT Discovery
-java -cp jstun-1.0.4.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp jstun-1.1.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.DiscoveryTestDemo
 
 # RFC 5780 NAT Mapping & Filtering Behavior Discovery
-java -cp jstun-1.0.4.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp jstun-1.1.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo
 
 # RFC 5780 UDP Path MTU Discovery (576..9000 bytes, jumbo-frame capable)
-java -cp jstun-1.0.4.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp jstun-1.1.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.MtuDiscoveryTestDemo
 
 # RFC 5780 NAT Hairpinning Behavior Discovery
-java -cp jstun-1.0.4.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp jstun-1.1.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.HairpinningDiscoveryTestDemo
 
 # UDP Binding Lifetime Discovery
-java -cp jstun-1.0.4.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp jstun-1.1.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.BindingLifetimeTestDemo
 ```
-*(Or using the standalone shaded JAR without extra classpath entries: `java -cp jstun-1.0.4-server.jar de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo`. If you build from source with `mvn package`, the JARs are placed in the `target/` directory.)*
+*(Or using the standalone shaded JAR without extra classpath entries: `java -cp jstun-1.1.0-server.jar de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo`. If you build from source with `mvn package`, the JARs are placed in the `target/` directory.)*
 
 You can also use `DiscoveryTest`, `FastDiscoveryTest`, `NatBehaviorDiscoveryTest` (for RFC 5780 Mapping & Filtering behavior), `MtuDiscoveryTest` (for RFC 5780 Path MTU / jumbo-frame probing), or `BindingLifetimeTest` programmatically:
 ```java
@@ -108,34 +108,34 @@ Boolean hairpinningSupported = hairpinTest.test();
 ### STUN Server
 A `JSTUN`-based STUN server is included and requires a dual-homed machine (two IP addresses and two ports). You can run the self-contained standalone server JAR directly:
 ```bash
-java -jar jstun-1.0.4-server.jar PORT1 IP1 PORT2 IP2
+java -jar jstun-1.1.0-server.jar PORT1 IP1 PORT2 IP2
 ```
 Or using the standard library JAR with SLF4J on the classpath:
 ```bash
-java -cp jstun-1.0.4.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
+java -cp jstun-1.1.0.jar:slf4j-api-2.0.9.jar:slf4j-jdk14-2.0.9.jar \
   de.javawi.jstun.test.demo.StunServer PORT1 IP1 PORT2 IP2
 ```
 Server logs rotate automatically (`logging_server.%g.txt`, 10 MB × 5 files) at `INFO` by default, and periodic traffic/error counters are logged every `60` seconds (`-Djstun.stats.interval=0` disables periodic stats). To change the log level (e.g., `FINE` or `ALL`), pass `-Djstun.log.level`:
 ```bash
-java -Djstun.log.level=ALL -Djstun.stats.interval=60 -jar jstun-1.0.4-server.jar PORT1 IP1 PORT2 IP2
+java -Djstun.log.level=ALL -Djstun.stats.interval=60 -jar jstun-1.1.0-server.jar PORT1 IP1 PORT2 IP2
 ```
 
 ### TURN Server & Client (RFC 5766)
 Run the NIO UDP TURN relay server with one or more `USER:PASS` credentials:
 ```bash
-java -cp jstun-1.0.4-server.jar \
+java -cp jstun-1.1.0-server.jar \
   de.javawi.jstun.turn.TurnServer 3478 0.0.0.0 example.org alice:secret
 ```
 Test relay allocation from the CLI with `TurnClientDemo`:
 ```bash
-java -cp jstun-1.0.4-server.jar \
+java -cp jstun-1.1.0-server.jar \
   de.javawi.jstun.test.demo.TurnClientDemo turn.example.org 3478 alice secret
 ```
 
 ### STUN Consent Freshness (RFC 7675)
 Run the self-contained RFC 7675 loopback demo (or pass `<host> <port> <username> <password>` for a live remote peer):
 ```bash
-java -cp jstun-1.0.4-server.jar \
+java -cp jstun-1.1.0-server.jar \
   de.javawi.jstun.test.demo.ConsentFreshnessDemo
 ```
 
