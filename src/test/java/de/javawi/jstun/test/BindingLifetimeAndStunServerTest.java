@@ -685,7 +685,7 @@ public class BindingLifetimeAndStunServerTest {
 			resp.parseAttributes(recv.getData());
 			XorMappedAddress xma = (XorMappedAddress) resp.getMessageAttribute(MessageAttributeType.XorMappedAddress);
 			assertNotNull(xma);
-			assertTrue(xma.getAddress().isIPv6());
+			assertTrue(xma.getAddress().getInetAddress() instanceof Inet6Address);
 			assertEquals(v6Client.getLocalPort(), xma.getPort());
 		} finally {
 			v6Only.stop();
@@ -722,8 +722,8 @@ public class BindingLifetimeAndStunServerTest {
 			OtherAddress v4Oa = (OtherAddress) v4Resp.getMessageAttribute(MessageAttributeType.OtherAddress);
 			assertNotNull(v4Xma);
 			assertNotNull(v4Oa);
-			assertFalse(v4Xma.getAddress().isIPv6());
-			assertFalse(v4Oa.getAddress().isIPv6());
+			assertFalse(v4Xma.getAddress().getInetAddress() instanceof Inet6Address);
+			assertFalse(v4Oa.getAddress().getInetAddress() instanceof Inet6Address);
 			assertEquals(v4Ports[3], v4Oa.getPort());
 
 			MessageHeader v4CrReq = new MessageHeader(MessageHeaderType.BindingRequest);
@@ -757,9 +757,9 @@ public class BindingLifetimeAndStunServerTest {
 			assertNotNull(v6Xma);
 			assertNotNull(v6Oa);
 			assertNotNull(v6Ro);
-			assertTrue(v6Xma.getAddress().isIPv6());
-			assertTrue(v6Oa.getAddress().isIPv6());
-			assertTrue(v6Ro.getAddress().isIPv6());
+			assertTrue(v6Xma.getAddress().getInetAddress() instanceof Inet6Address);
+			assertTrue(v6Oa.getAddress().getInetAddress() instanceof Inet6Address);
+			assertTrue(v6Ro.getAddress().getInetAddress() instanceof Inet6Address);
 			assertEquals(v6Client.getLocalPort(), v6Xma.getPort());
 			assertEquals(v6Ports[0], v6Ro.getPort());
 			assertEquals(v6Ports[3], v6Oa.getPort());
