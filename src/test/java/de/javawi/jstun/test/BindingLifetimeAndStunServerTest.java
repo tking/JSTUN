@@ -550,6 +550,10 @@ public class BindingLifetimeAndStunServerTest {
 			assertEquals(MessageHeaderType.BindingResponse, resp10.getType());
 			assertTrue(resp10.equalTransactionID(req10));
 
+			// Stop server so receiver threads finish updating stats before assertions
+			server.stop();
+			server.stop(); // idempotent
+
 			// Verify server observability counters
 			StunServer.StunServerStats stats = server.getStats();
 			assertTrue(stats.getPacketsReceived() >= 10);
@@ -567,7 +571,6 @@ public class BindingLifetimeAndStunServerTest {
 			assertTrue(stats.formatSummary().contains("packetsIn="));
 		} finally {
 			server.stop();
-			server.stop(); // idempotent
 		}
 	}
 
@@ -637,6 +640,8 @@ public class BindingLifetimeAndStunServerTest {
 			MessageHeader hugeResp = MessageHeader.parseHeader(hugeRespRaw);
 			hugeResp.parseAttributes(hugeRespRaw);
 			assertNotNull(hugeResp.getMessageAttribute(MessageAttributeType.Padding));
+
+			server.stop();
 
 			// Verify both parse errors and both padding requests were tracked
 			StunServer.StunServerStats stats = server.getStats();
@@ -777,6 +782,8 @@ public class BindingLifetimeAndStunServerTest {
 			v6Client.receive(v6CrRecv);
 			assertEquals(v6Ports[3], v6CrRecv.getPort());
 			assertTrue(v6CrRecv.getAddress() instanceof Inet6Address);
+
+			dualStack.stop();
 
 			// Shared stats track both IPv4 and IPv6 requests
 			assertEquals(4, dualStack.getStats().getBindingRequests());

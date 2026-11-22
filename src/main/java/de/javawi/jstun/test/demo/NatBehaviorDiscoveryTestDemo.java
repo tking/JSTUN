@@ -12,11 +12,8 @@
 package de.javawi.jstun.test.demo;
 
 import java.net.BindException;
-import java.net.Inet4Address;
-import java.net.Inet6Address;
 import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.util.Enumeration;
+import java.util.List;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -60,25 +57,28 @@ public class NatBehaviorDiscoveryTestDemo implements Runnable {
 
 	public static void main(String args[]) {
 		try {
+			DemoIpVersion.ParsedArgs parsed = DemoIpVersion.parse(args);
+			if (!parsed.getPositionalArgs().isEmpty()) {
+				System.err.println("usage: java de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo [-4|--ipv4 | -6|--ipv6]");
+				return;
+			}
 			Handler fh = new FileHandler("logging.txt");
 			fh.setFormatter(new SimpleFormatter());
 			java.util.logging.Logger.getLogger("de.javawi.jstun").addHandler(fh);
 			java.util.logging.Logger.getLogger("de.javawi.jstun").setLevel(Level.ALL);
 
-			Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
-			while (ifaces.hasMoreElements()) {
-				NetworkInterface iface = ifaces.nextElement();
-				Enumeration<InetAddress> iaddresses = iface.getInetAddresses();
-				while (iaddresses.hasMoreElements()) {
-					InetAddress iaddress = iaddresses.nextElement();
-					if ((iaddress instanceof Inet4Address) || (iaddress instanceof Inet6Address)) {
-						if ((!iaddress.isLoopbackAddress()) && (!iaddress.isLinkLocalAddress()) && (!iaddress.isMulticastAddress())) {
-							Thread thread = new Thread(new NatBehaviorDiscoveryTestDemo(iaddress));
-							thread.start();
-						}
-					}
-				}
+			List<InetAddress> addresses = parsed.getIpVersion().getLocalAddresses();
+			if (addresses.isEmpty()) {
+				System.out.println("No suitable " + parsed.getIpVersion() + " network interface addresses found.");
+				return;
 			}
+			for (InetAddress iaddress : addresses) {
+				Thread thread = new Thread(new NatBehaviorDiscoveryTestDemo(iaddress));
+				thread.start();
+			}
+		} catch (IllegalArgumentException iae) {
+			System.err.println("Error: " + iae.getMessage());
+			System.err.println("usage: java de.javawi.jstun.test.demo.NatBehaviorDiscoveryTestDemo [-4|--ipv4 | -6|--ipv6]");
 		} catch (Exception e) {
 			LOGGER.error("Error initializing NatBehaviorDiscoveryTestDemo: {}", e.getMessage(), e);
 			System.out.println(e.getMessage());
